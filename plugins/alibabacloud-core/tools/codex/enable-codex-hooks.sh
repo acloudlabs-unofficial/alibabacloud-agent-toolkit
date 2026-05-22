@@ -25,7 +25,7 @@ fi
 mkdir -p "$(dirname "$CONFIG")"
 [ -f "$CONFIG" ] || printf '' > "$CONFIG"
 
-ts=$(date +%s)
+ts=$(date +%s).$$
 cp "$CONFIG" "$CONFIG.bak.$ts"
 echo "Backup: $CONFIG.bak.$ts"
 
@@ -49,7 +49,7 @@ def strip_key(block):
     return re.sub(rf'(?m)^{re.escape(key)}\s*=.*\n?', '', block)
 if header in text:
     # Operate only on this section's body (until next [ at line start or EOF)
-    pat = re.compile(rf'(\[{re.escape(section)}\]\n)(.*?)(?=\n\[|\Z)', re.S)
+    pat = re.compile(rf'(\[{re.escape(section)}\][ \t]*\n)(.*?)(?=\n\[|\Z)', re.S)
     m = pat.search(text)
     body = strip_key(m.group(2))
     new_body = body.rstrip() + f"\n{key} = {value}\n"
@@ -80,11 +80,18 @@ EVENT_MAP = {
 }
 
 def upsert_section(text, header, kv_pairs):
-    pat = re.compile(rf'(\[{re.escape(header)}\]\n)(.*?)(?=\n\[|\Z)', re.S)
-    body = "".join(f"{k} = {v}\n" for k, v in kv_pairs)
-    if pat.search(text):
-        return pat.sub(lambda m: m.group(1) + body, text, count=1)
+    pat = re.compile(rf'(\[{re.escape(header)}\][ \t]*\n)(.*?)(?=\n\[|\Z)', re.S)
+    m = pat.search(text)
+    if m:
+        body = m.group(2)
+        for k, _ in kv_pairs:
+            body = re.sub(rf'(?m)^{re.escape(k)}\s*=.*\n?', '', body)
+        body = body.rstrip()
+        addition = "".join(f"{k} = {v}\n" for k, v in kv_pairs)
+        new_body = (body + "\n" if body else "") + addition
+        return text[:m.start(2)] + new_body + text[m.end(2):]
     sep = "" if text.endswith("\n") or text == "" else "\n"
+    body = "".join(f"{k} = {v}\n" for k, v in kv_pairs)
     return text + f"{sep}[{header}]\n{body}"
 
 for evt_name, groups in hooks.get("hooks", {}).items():
