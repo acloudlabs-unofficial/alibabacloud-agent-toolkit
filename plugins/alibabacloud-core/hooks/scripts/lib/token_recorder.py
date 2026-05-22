@@ -65,6 +65,15 @@ def _read_transcript_slice(path: str, offset: int) -> tuple[bytes, int]:
             content = f.read(end - offset)
     except OSError:
         return b"", offset
+    # Trim to last full line: if the writer is mid-line at EOF, or the
+    # MAX_NEW_BYTES_PER_CALL cap split a line, we'd otherwise advance the
+    # offset past a partial JSON line and silently drop it on the next pass.
+    last_nl = content.rfind(b"\n")
+    if last_nl < 0:
+        # No newline in slice (single huge unterminated line) - retry next pass.
+        return b"", offset
+    if last_nl + 1 < len(content):
+        content = content[:last_nl + 1]
     return content, offset + len(content)
 
 
