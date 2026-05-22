@@ -146,8 +146,20 @@ def main() -> int:
             # --- Local trace: mark turn active, get parent span ---
             if trace_writer.trace_enabled():
                 st.data["turn_has_trace"] = True
-                parent_span = st.data.get("prompt_span_id")
+                # Last-Skill-Wins: prefer current skill, fall back to prompt
+                parent_span = (
+                    st.data.get("current_skill_span_id")
+                    or st.data.get("prompt_span_id")
+                )
                 turn = int(st.data.get("turn", 0))
+                # Record this span for end-of-turn token aggregation
+                st.data.setdefault("turn_spans", []).append({
+                    "span_id": tool_use_id or key,
+                    "parent_span_id": parent_span,
+                    "kind": "tool",
+                    "tool_use_id": tool_use_id,
+                    "tool_name": tool_name,
+                })
     except Exception:
         pass
 
