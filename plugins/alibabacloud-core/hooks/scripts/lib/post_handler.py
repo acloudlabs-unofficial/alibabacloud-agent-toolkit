@@ -149,7 +149,7 @@ def classify_with_reason(
             if m_skill:
                 m_plugin = PLUGIN_FROM_PATH_RE.search(cmd)
                 plugin = m_plugin.group("plugin") if m_plugin else ""
-                if PLUGIN_PREFIX in (plugin.lower() if plugin else cmd.lower()):
+                if plugin and PLUGIN_PREFIX in plugin.lower():
                     return {
                         "event_type": "skill_invocation",
                         "skill_name": m_skill.group("skill"),
