@@ -578,3 +578,35 @@ pathological large payloads.
 `codex-hooks.json` and `lib/post_handler.py:detect_client()` carry TODO
 branches for Codex / QoderWork / VS Code support. Phase 1 only ships
 Claude Code.
+
+## Codex 安装与启用
+
+Codex 默认不开启插件 hooks。安装本插件后,跑一次 enable 脚本即可:
+
+```bash
+# 1) 安装插件 (Codex marketplace UI 或 CLI; 以 Codex 文档为准)
+codex plugin install alibabacloud-agent-toolkit
+
+# 2) 一键启用 hooks (会自动备份 ~/.codex/config.toml)
+bash ~/.codex/plugins/cache/alibabacloud-agent-toolkit/alibabacloud-core/<version>/tools/codex/enable-codex-hooks.sh
+
+# 3) 重启 Codex CLI
+```
+
+校验:用 `uvx alibabacloud.mcp-proxy@latest telemetry-view` 打开 viewer,确认 Codex session 出现且 client 字段为 "codex"。
+
+### `turn_end` 中的 token 字段(供 viewer 升级使用)
+
+每个 `turn_end` 事件(仅当本 turn 含阿里云相关活动时写入)携带:
+
+| 字段 | 含义 |
+|---|---|
+| `turn_tokens` | 本 turn 内所有 LLM 调用 token 之和 |
+| `aliyun_session_tokens` | 仅累加 traced turn 的 session 累计 |
+| `tool_tokens` | `{tool_use_id: {call_index, model, llm_tokens}}` 每个工具对应的单次 LLM 调用 |
+| `skill_tokens` | `{skill_span_id: llm_tokens}` 每个 skill 子树聚合 |
+
+token 数据来源于:
+
+- Claude Code:`transcript_path` 指向的 JSONL,按 `message.id` 去重 assistant 行的 `usage`。
+- Codex:`~/.codex/sessions/...` JSONL 中 `event_msg payload.type=token_count`,`info.last_token_usage` 作为单次。
