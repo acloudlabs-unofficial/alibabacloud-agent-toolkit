@@ -41,6 +41,8 @@ def _detect_client(payload_str: str) -> str:
         return "qoderwork"
     if "__vscode" in payload_str:
         return "vscode"
+    if '"turn_id":' in payload_str:
+        return "codex"
     return "claude-code"
 
 
