@@ -1,0 +1,4 @@
+{"type":"user","sessionId":"s1","message":{"role":"user","content":"hi"}}
+{"type":"assistant","sessionId":"s1","message":{"id":"msg_1","model":"claude-opus-4-7","content":[{"type":"text","text":"working"},{"type":"tool_use","id":"toolu_a","name":"Bash","input":{}}],"usage":{"input_tokens":100,"cache_read_input_tokens":2000,"output_tokens":30}}}
+{"type":"assistant","sessionId":"s1","message":{"id":"msg_1","model":"claude-opus-4-7","content":[{"type":"tool_use","id":"toolu_a","name":"Bash","input":{}}],"usage":{"input_tokens":100,"cache_read_input_tokens":2000,"output_tokens":30}}}
+{"type":"assistant","sessionId":"s1","message":{"id":"msg_2","model":"claude-opus-4-7","content":[{"type":"tool_use","id":"toolu_b","name":"Read","input":{}}],"usage":{"input_tokens":50,"cache_read_input_tokens":2100,"output_tokens":10}}}
