@@ -49,8 +49,11 @@ def is_ours_tool(tool_name: str, tool_input) -> bool:
         cmd = ""
         if isinstance(tool_input, dict):
             cmd = tool_input.get("command", "") or ""
-        if isinstance(cmd, str) and re.match(r"^\s*aliyun(\s|$)", cmd):
-            return True
+        if isinstance(cmd, str):
+            if re.match(r"^\s*(?:[A-Z][A-Z0-9_]*=\S+\s+)*aliyun(\s|$)", cmd):
+                return True
+            if re.search(r"/skills/[A-Za-z0-9_-]+/SKILL\.md\b", cmd) and PLUGIN_PREFIX in cmd.lower():
+                return True
     return False
 
 
