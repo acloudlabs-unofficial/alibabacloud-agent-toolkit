@@ -1,8 +1,54 @@
 {
-  "_comment": "TODO Phase 2: Codex hook registration. Codex hook payload format and lifecycle event names differ from Claude Code; this file is intentionally inert until Codex client support is implemented. Track scope here so Phase 2 only needs to fill in this file.",
-  "_phase2_todo": [
-    "Activate CODEX_CLI=1 branch in lib/post_handler.py:detect_client()",
-    "Add codex-specific event-name → tool-name mapping in lib/post_handler.py classify()",
-    "Update tools/hooks/README.md to mention Codex support"
-  ]
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CODEX_CLI=1 bash \"${PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}/hooks/scripts/pre-tool-trace.sh\"",
+            "timeout": 3,
+            "statusMessage": "alibabacloud trace: pre"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CODEX_CLI=1 bash \"${PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-tool-trace.sh\"",
+            "timeout": 15,
+            "statusMessage": "alibabacloud trace: post"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CODEX_CLI=1 bash \"${PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}/hooks/scripts/prompt-trace.sh\"",
+            "timeout": 5,
+            "statusMessage": "alibabacloud trace: prompt"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CODEX_CLI=1 bash \"${PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}/hooks/scripts/stop-turn-increment.sh\"",
+            "timeout": 15,
+            "statusMessage": "alibabacloud trace: stop"
+          }
+        ]
+      }
+    ]
+  }
 }
