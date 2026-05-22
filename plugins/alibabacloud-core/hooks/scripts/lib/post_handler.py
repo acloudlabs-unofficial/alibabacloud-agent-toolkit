@@ -650,9 +650,24 @@ def main() -> int:
     if trace_writer.trace_enabled() and session_id:
         try:
             parent_span = None
+            this_span_id = tool_use_id or marker_key
             try:
                 with SessionState(client, session_id) as st:
-                    parent_span = st.data.get("prompt_span_id")
+                    parent_span = (
+                        st.data.get("current_skill_span_id")
+                        or st.data.get("prompt_span_id")
+                    )
+                    # If this tool is a skill_invocation, take ownership of
+                    # current_skill_span_id and stamp turn_spans.
+                    if seed.get("event_type") == "skill_invocation":
+                        st.data["current_skill_span_id"] = this_span_id
+                        st.data.setdefault("turn_spans", []).append({
+                            "span_id": this_span_id,
+                            "parent_span_id": parent_span,
+                            "kind": "skill_invocation",
+                            "tool_use_id": tool_use_id,
+                            "skill_name": seed.get("skill_name", ""),
+                        })
             except Exception:
                 pass
             trace_response = tool_response if isinstance(tool_response, (dict, list)) else tool_result
@@ -673,6 +688,19 @@ def main() -> int:
                 "start_timestamp": start_ms,
                 "end_timestamp": end_ms,
             })
+            if seed.get("event_type") == "skill_invocation" and tool_name == "Bash":
+                trace_writer.append_trace(client, session_id, {
+                    "event": "skill_invocation",
+                    "span_id": this_span_id + ".skill",
+                    "parent_span_id": parent_span,
+                    "tool_name": "Skill",
+                    "skill_name": seed.get("skill_name", ""),
+                    "plugin_name": seed.get("plugin_name", ""),
+                    "status": status,
+                    "turn": turn,
+                    "start_timestamp": start_ms,
+                    "end_timestamp": end_ms,
+                })
         except Exception:
             pass
 
