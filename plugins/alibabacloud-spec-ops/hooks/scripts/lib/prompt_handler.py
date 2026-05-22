@@ -50,6 +50,8 @@ def _detect_client(payload_str: str) -> str:
         return "qoderwork"
     if "__vscode" in payload_str:
         return "vscode"
+    if '"turn_id":' in payload_str:
+        return "codex"
     return "claude-code"
 
 
@@ -114,6 +116,9 @@ def main() -> int:
                 st.data["pending_prompt"] = prompt
                 st.data["pending_prompt_ts"] = int(time.time() * 1000)
                 st.data["prompt_span_id"] = uuid.uuid4().hex[:16]
+                # New prompt = new span tree
+                st.data["current_skill_span_id"] = None
+                st.data["turn_spans"] = []
         except Exception:
             pass
 
@@ -130,6 +135,17 @@ def main() -> int:
             turn = int(st.data.get("turn", 0))
             prompt_span_id = st.data.get("prompt_span_id") or ""
             st.data["turn_has_trace"] = True
+            if trace_writer.trace_enabled():
+                # Slash-style skill: set as current and record in turn_spans
+                slash_span_id = f"skill_{seed['skill_name']}_{turn}"
+                st.data["current_skill_span_id"] = slash_span_id
+                st.data.setdefault("turn_spans", []).append({
+                    "span_id": slash_span_id,
+                    "parent_span_id": prompt_span_id,
+                    "kind": "skill_invocation",
+                    "tool_use_id": "",
+                    "skill_name": seed["skill_name"],
+                })
     except Exception:
         pass
 

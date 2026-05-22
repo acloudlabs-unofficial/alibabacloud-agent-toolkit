@@ -20,6 +20,33 @@ import uuid as _uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from state import SessionState, cleanup_stale_sessions  # noqa: E402
 import trace_writer  # noqa: E402
+import token_recorder  # noqa: E402
+
+EMPTY_TOKENS = {
+    "input_uncached": 0, "input_cached": 0, "input_creation": 0,
+    "output": 0, "reasoning": 0,
+}
+
+
+def _add_tokens(a: dict, b: dict) -> dict:
+    out = dict(a)
+    for k in EMPTY_TOKENS:
+        av = out.get(k) or 0
+        bv = b.get(k) or 0
+        out[k] = av + bv
+    return out
+
+
+def _walk_skill_ancestor(span_id: str, parent_map: dict, skill_set: set) -> str:
+    seen = set()
+    cur = span_id
+    while cur and cur not in seen:
+        seen.add(cur)
+        if cur in skill_set:
+            return cur
+        cur = parent_map.get(cur)
+    return ""
+
 
 DEBUG = os.environ.get("ALIBABACLOUD_TELEMETRY_DEBUG") == "1"
 
@@ -41,6 +68,8 @@ def _detect_client(payload_str: str) -> str:
         return "qoderwork"
     if "__vscode" in payload_str:
         return "vscode"
+    if '"turn_id":' in payload_str:
+        return "codex"
     return "claude-code"
 
 
@@ -97,6 +126,34 @@ def main() -> int:
             current_turn = int(st.data.get("turn", 0))
             stop_ts = int(time.time() * 1000)
 
+            # --- Token recorder: read transcript slice (always advance offset) ---
+            transcript_path = data.get("transcript_path") or ""
+            tokens_offset = int(st.data.get("tokens_offset", 0))
+            tokens_call_index = int(st.data.get("tokens_call_index", 0))
+            tokens_parser_state = st.data.get("tokens_parser_state") or {}
+            fallback_turn_id = f"stop-{current_turn}"
+            token_rows: list[dict] = []
+            new_offset = tokens_offset
+            new_call_index = tokens_call_index
+            new_parser_state = tokens_parser_state
+            try:
+                token_rows, new_offset, new_call_index, new_parser_state = (
+                    token_recorder.process_stop(
+                        client, transcript_path, tokens_offset,
+                        tokens_call_index, tokens_parser_state,
+                        fallback_turn_id,
+                    )
+                )
+            except Exception:
+                token_rows = []
+
+            # Always advance offsets, even when this turn is not traced —
+            # otherwise the next traced turn would re-attribute these tokens.
+            st.data["tokens_offset"] = new_offset
+            st.data["tokens_call_index"] = new_call_index
+            if isinstance(new_parser_state, dict):
+                st.data["tokens_parser_state"] = new_parser_state
+
             # --- Local trace: backfill prompt and write turn_end ---
             if trace_writer.trace_enabled() and turn_has_trace:
                 pending = st.data.get("pending_prompt")
@@ -110,6 +167,41 @@ def main() -> int:
                         "start_timestamp": pending_prompt_ts,
                         "end_timestamp": stop_ts,
                     })
+
+                # Aggregate token rows
+                turn_spans = st.data.get("turn_spans") or []
+                parent_map = {s["span_id"]: s.get("parent_span_id") for s in turn_spans}
+                skill_set = {s["span_id"] for s in turn_spans if s.get("kind") == "skill_invocation"}
+                # Reverse map: tool_use_id → span_id (they're equal in our pre_handler)
+                tool_use_to_span = {
+                    s["tool_use_id"]: s["span_id"]
+                    for s in turn_spans
+                    if s.get("tool_use_id")
+                }
+
+                turn_tokens = dict(EMPTY_TOKENS)
+                tool_tokens: dict = {}
+                skill_tokens: dict = {sid: dict(EMPTY_TOKENS) for sid in skill_set}
+
+                for row in token_rows:
+                    n = row.get("normalized") or {}
+                    turn_tokens = _add_tokens(turn_tokens, n)
+                    for tu_id in row.get("tool_use_ids") or []:
+                        span_id = tool_use_to_span.get(tu_id) or tu_id
+                        tool_tokens[span_id] = {
+                            "call_index": row.get("call_index"),
+                            "model": row.get("model"),
+                            "llm_tokens": dict(n),
+                        }
+                        anc = _walk_skill_ancestor(span_id, parent_map, skill_set)
+                        if anc:
+                            skill_tokens[anc] = _add_tokens(skill_tokens[anc], n)
+
+                # Update cumulative session total (only counts traced turns)
+                session_total = st.data.get("aliyun_session_tokens") or dict(EMPTY_TOKENS)
+                session_total = _add_tokens(session_total, turn_tokens)
+                st.data["aliyun_session_tokens"] = session_total
+
                 trace_writer.append_trace(client, session_id, {
                     "event": "turn_end",
                     "span_id": _uuid.uuid4().hex[:16],
@@ -118,6 +210,10 @@ def main() -> int:
                     "turn": current_turn,
                     "start_timestamp": stop_ts,
                     "end_timestamp": stop_ts,
+                    "turn_tokens": turn_tokens,
+                    "aliyun_session_tokens": session_total,
+                    "tool_tokens": tool_tokens,
+                    "skill_tokens": skill_tokens,
                 })
 
             # --- Remote telemetry: emit user_prompt_turn_start ---
@@ -142,6 +238,8 @@ def main() -> int:
                 st.data.pop("pending_prompt", None)
                 st.data.pop("pending_prompt_ts", None)
                 st.data.pop("prompt_span_id", None)
+                st.data["current_skill_span_id"] = None
+                st.data["turn_spans"] = []
 
             # Increment turn (existing behavior)
             st.data["turn"] = int(st.data.get("turn", 0)) + 1

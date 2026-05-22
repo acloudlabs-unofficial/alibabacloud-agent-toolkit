@@ -18,6 +18,7 @@ detect_client_bash() {
     if [ "$CODEX_CLI" = "1" ]; then echo "codex"; return; fi
     if [ "$QODER_WORK" = "1" ]; then echo "qoderwork"; return; fi
     case "${1:-}" in *__vscode*) echo "vscode"; return ;; esac
+    case "${1:-}" in *\"turn_id\":*) echo "codex"; return ;; esac
     echo "claude-code"
 }
 

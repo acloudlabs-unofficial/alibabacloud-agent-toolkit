@@ -41,6 +41,8 @@ def detect_client(payload_str: str) -> str:
         return "qoderwork"
     if "__vscode" in payload_str:
         return "vscode"
+    if '"turn_id":' in payload_str:
+        return "codex"
     return "claude-code"
 
 
@@ -59,6 +61,8 @@ def _sanitize_tool_name(tool_name: str) -> str:
 SKILLS_PATH_RE = re.compile(
     r"(?P<plugin>alibabacloud[-_a-zA-Z0-9]*)/[^/]*?/?skills/(?P<skill>[^/]+)/(?P<rest>.+)$"
 )
+SKILL_FILE_RE = re.compile(r"/skills/(?P<skill>[A-Za-z0-9_-]+)/SKILL\.md\b")
+PLUGIN_FROM_PATH_RE = re.compile(r"/(?P<plugin>alibabacloud[-_a-zA-Z0-9]*)/")
 
 
 def classify_with_reason(
@@ -134,23 +138,36 @@ def classify_with_reason(
             "query_summary": "read:reference-file",
         }, None, extra
 
-    # 4. Bash with aliyun CLI
+    # 4. Bash — three sub-classifiers: SKILL.md-read, aliyun CLI, otherwise miss
     if tool_name == "Bash":
         cmd = ""
         if isinstance(tool_input, dict):
             cmd = tool_input.get("command", "") or ""
-        if not isinstance(cmd, str) or not re.match(r"^\s*aliyun(\s|$)", cmd):
-            head_token = ""
-            if isinstance(cmd, str) and cmd.strip():
-                head_token = cmd.strip().split()[0]
-                # Sanitize: keep alnum, dash, underscore, dot only; cap at 32 chars.
-                head_token = re.sub(r"[^A-Za-z0-9._-]", "_", head_token)[:32]
-            extra["cmd_head"] = head_token
-            return None, "bash-not-aliyun", extra
-        return {
-            "event_type": "cli_command_use",
-            "cli_command": sanitize.sanitize_aliyun_cli(cmd),
-        }, None, extra
+        if isinstance(cmd, str) and cmd:
+            # 4a. Bash reading a SKILL.md → skill_invocation
+            m_skill = SKILL_FILE_RE.search(cmd)
+            if m_skill:
+                m_plugin = PLUGIN_FROM_PATH_RE.search(cmd)
+                plugin = m_plugin.group("plugin") if m_plugin else ""
+                if plugin and PLUGIN_PREFIX in plugin.lower():
+                    return {
+                        "event_type": "skill_invocation",
+                        "skill_name": m_skill.group("skill"),
+                        "plugin_name": plugin,
+                    }, None, extra
+            # 4b. Aliyun CLI (with optional ENV=val prefixes)
+            if re.match(r"^\s*(?:[A-Z][A-Z0-9_]*=\S+\s+)*aliyun(\s|$)", cmd):
+                return {
+                    "event_type": "cli_command_use",
+                    "cli_command": sanitize.sanitize_aliyun_cli(cmd),
+                }, None, extra
+        head_token = ""
+        if isinstance(cmd, str) and cmd.strip():
+            head_token = cmd.strip().split()[0]
+            # Sanitize: keep alnum, dash, underscore, dot only; cap at 32 chars.
+            head_token = re.sub(r"[^A-Za-z0-9._-]", "_", head_token)[:32]
+        extra["cmd_head"] = head_token
+        return None, "bash-not-aliyun", extra
 
     # 5. MCP tool (alibabacloud-* MCP server)
     lowered = tool_name.lower()
@@ -633,9 +650,24 @@ def main() -> int:
     if trace_writer.trace_enabled() and session_id:
         try:
             parent_span = None
+            this_span_id = tool_use_id or marker_key
             try:
                 with SessionState(client, session_id) as st:
-                    parent_span = st.data.get("prompt_span_id")
+                    parent_span = (
+                        st.data.get("current_skill_span_id")
+                        or st.data.get("prompt_span_id")
+                    )
+                    # If this tool is a skill_invocation, take ownership of
+                    # current_skill_span_id and stamp turn_spans.
+                    if seed.get("event_type") == "skill_invocation":
+                        st.data["current_skill_span_id"] = this_span_id
+                        st.data.setdefault("turn_spans", []).append({
+                            "span_id": this_span_id,
+                            "parent_span_id": parent_span,
+                            "kind": "skill_invocation",
+                            "tool_use_id": tool_use_id,
+                            "skill_name": seed.get("skill_name", ""),
+                        })
             except Exception:
                 pass
             trace_response = tool_response if isinstance(tool_response, (dict, list)) else tool_result
@@ -656,6 +688,19 @@ def main() -> int:
                 "start_timestamp": start_ms,
                 "end_timestamp": end_ms,
             })
+            if seed.get("event_type") == "skill_invocation" and tool_name == "Bash":
+                trace_writer.append_trace(client, session_id, {
+                    "event": "skill_invocation",
+                    "span_id": this_span_id + ".skill",
+                    "parent_span_id": parent_span,
+                    "tool_name": "Skill",
+                    "skill_name": seed.get("skill_name", ""),
+                    "plugin_name": seed.get("plugin_name", ""),
+                    "status": status,
+                    "turn": turn,
+                    "start_timestamp": start_ms,
+                    "end_timestamp": end_ms,
+                })
         except Exception:
             pass
 
