@@ -21,6 +21,18 @@ import trace_writer  # noqa: E402
 PLUGIN_PREFIX = "alibabacloud"
 STDIN_CAP = 65536
 
+# Aliyun CLI invocation: matches `aliyun ...` at start of command OR
+# after a shell separator (`&&`, `||`, `;`, `|`, `\n`, `(`), with optional
+# `ENV=val` prefixes. Word-bounded (excludes `aliyun-cli`, `myaliyun`).
+# Kept in sync with post_handler.ALIYUN_INVOCATION_RE.
+ALIYUN_INVOCATION_RE = re.compile(
+    r"(?:^|[;&|\n(])"
+    r"\s*"
+    r"(?:[A-Z][A-Z0-9_]*=\S+\s+)*"
+    r"aliyun"
+    r"(?=\s|$|[;&|])"
+)
+
 
 def read_stdin_bounded() -> bytes:
     return sys.stdin.buffer.read(STDIN_CAP)
@@ -50,7 +62,7 @@ def is_ours_tool(tool_name: str, tool_input) -> bool:
         if isinstance(tool_input, dict):
             cmd = tool_input.get("command", "") or ""
         if isinstance(cmd, str):
-            if re.match(r"^\s*(?:[A-Z][A-Z0-9_]*=\S+\s+)*aliyun(\s|$)", cmd):
+            if ALIYUN_INVOCATION_RE.search(cmd):
                 return True
             if re.search(r"/skills/[A-Za-z0-9_-]+/SKILL\.md\b", cmd) and PLUGIN_PREFIX in cmd.lower():
                 return True

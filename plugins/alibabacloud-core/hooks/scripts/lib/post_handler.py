@@ -64,6 +64,17 @@ SKILLS_PATH_RE = re.compile(
 SKILL_FILE_RE = re.compile(r"/skills/(?P<skill>[A-Za-z0-9_-]+)/SKILL\.md\b")
 PLUGIN_FROM_PATH_RE = re.compile(r"/(?P<plugin>alibabacloud[-_a-zA-Z0-9]*)/")
 
+# Aliyun CLI invocation: matches `aliyun ...` at start of command OR
+# after a shell separator (`&&`, `||`, `;`, `|`, `\n`, `(`), with optional
+# `ENV=val` prefixes. Word-bounded (excludes `aliyun-cli`, `myaliyun`).
+ALIYUN_INVOCATION_RE = re.compile(
+    r"(?:^|[;&|\n(])"
+    r"\s*"
+    r"(?:[A-Z][A-Z0-9_]*=\S+\s+)*"
+    r"aliyun"
+    r"(?=\s|$|[;&|])"
+)
+
 
 def classify_with_reason(
     tool_name: str, tool_input: Any
@@ -155,8 +166,9 @@ def classify_with_reason(
                         "skill_name": m_skill.group("skill"),
                         "plugin_name": plugin,
                     }, None, extra
-            # 4b. Aliyun CLI (with optional ENV=val prefixes)
-            if re.match(r"^\s*(?:[A-Z][A-Z0-9_]*=\S+\s+)*aliyun(\s|$)", cmd):
+            # 4b. Aliyun CLI (also matches inside compound commands like
+            # `sleep 5 && aliyun ecs ...` or `cd dir; aliyun ...`).
+            if ALIYUN_INVOCATION_RE.search(cmd):
                 return {
                     "event_type": "cli_command_use",
                     "cli_command": sanitize.sanitize_aliyun_cli(cmd),
