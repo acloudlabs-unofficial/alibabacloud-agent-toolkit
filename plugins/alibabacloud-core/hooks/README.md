@@ -604,7 +604,8 @@ bash ~/.codex/plugins/cache/alibabacloud-agent-toolkit/alibabacloud-core/<versio
 | `turn_tokens` | 本 turn 内所有 LLM 调用 token 之和 |
 | `aliyun_session_tokens` | 仅累加 traced turn 的 session 累计 |
 | `tool_tokens` | `{tool_use_id: {call_index, model, llm_tokens}}` 每个工具对应的单次 LLM 调用 |
-| `skill_tokens` | `{skill_span_id: llm_tokens}` 每个 skill 子树聚合 |
+
+> Layer 2 的 skill 子树聚合不再由 hook 直接写入,改由 viewer 在渲染时通过 `compute_token_layers` 沿 parent 链回溯估算,并附 confidence 标记。
 
 token 数据来源于:
 
