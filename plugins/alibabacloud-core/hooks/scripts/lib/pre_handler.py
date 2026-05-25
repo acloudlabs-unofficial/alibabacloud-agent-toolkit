@@ -163,10 +163,17 @@ def main() -> int:
                     st.data.get("current_skill_span_id")
                     or st.data.get("prompt_span_id")
                 )
+                this_span_id = tool_use_id or key
+                # Never let a span be its own parent (defensive guard
+                # symmetric with post_handler).
+                if parent_span == this_span_id:
+                    parent_span = st.data.get("prompt_span_id")
+                    if parent_span == this_span_id:
+                        parent_span = None
                 turn = int(st.data.get("turn", 0))
                 # Record this span for end-of-turn token aggregation
                 st.data.setdefault("turn_spans", []).append({
-                    "span_id": tool_use_id or key,
+                    "span_id": this_span_id,
                     "parent_span_id": parent_span,
                     "kind": "tool",
                     "tool_use_id": tool_use_id,

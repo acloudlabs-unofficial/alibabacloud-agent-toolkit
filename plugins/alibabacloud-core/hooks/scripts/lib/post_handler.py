@@ -567,14 +567,35 @@ def main() -> int:
     marker_key = tool_use_id or _sanitize_tool_name(tool_name)
     start_ms = None
     turn = 0
+    duplicate_skipped = False
     if session_id:
         try:
             with SessionState(client, session_id) as st:
-                start_ms = st.data["tool_starts"].pop(marker_key, None)
-                turn = int(st.data.get("turn", 0))
+                # Dedup: some clients (claude-code) fire PostToolUse twice
+                # for the same Skill call. Without dedup we'd emit duplicate
+                # trace events, double-upload to remote, and create cycles
+                # in the span tree (each invocation reads then writes
+                # current_skill_span_id).
+                dedup_key = tool_use_id or f"{tool_name}:{marker_key}"
+                posted = st.data.setdefault("posted_tool_use_ids", [])
+                if dedup_key in posted:
+                    duplicate_skipped = True
+                else:
+                    posted.append(dedup_key)
+                    if len(posted) > 500:
+                        posted[:] = posted[-500:]
+                    start_ms = st.data["tool_starts"].pop(marker_key, None)
+                    turn = int(st.data.get("turn", 0))
         except Exception:
             start_ms = None
             turn = 0
+    if duplicate_skipped:
+        _debug(
+            f"[post] event_name={hook_event_name or '<none>'} "
+            f"tool={tool_name or '<none>'} decision=reject "
+            f"reason=duplicate-post-tool-use"
+        )
+        return 1
     end_ms = int(time.time() * 1000)
     fallback_used = start_ms is None
     if fallback_used:
@@ -669,6 +690,14 @@ def main() -> int:
                         st.data.get("current_skill_span_id")
                         or st.data.get("prompt_span_id")
                     )
+                    # Never let a span be its own parent (would create a
+                    # cycle when a duplicate PostToolUse for a Skill reads
+                    # current_skill_span_id that the first call just set to
+                    # this same id).
+                    if parent_span == this_span_id:
+                        parent_span = st.data.get("prompt_span_id")
+                        if parent_span == this_span_id:
+                            parent_span = None
                     # If this tool is a skill_invocation, take ownership of
                     # current_skill_span_id and stamp turn_spans.
                     if seed.get("event_type") == "skill_invocation":

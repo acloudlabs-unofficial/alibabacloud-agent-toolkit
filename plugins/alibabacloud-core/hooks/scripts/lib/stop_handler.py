@@ -240,6 +240,10 @@ def main() -> int:
                 st.data.pop("prompt_span_id", None)
                 st.data["current_skill_span_id"] = None
                 st.data["turn_spans"] = []
+                # Clear post-tool-use dedup set — claude double-fires are
+                # always within the same turn, so this keeps memory bounded
+                # without losing any dedup signal.
+                st.data["posted_tool_use_ids"] = []
 
             # Increment turn (existing behavior)
             st.data["turn"] = int(st.data.get("turn", 0)) + 1
