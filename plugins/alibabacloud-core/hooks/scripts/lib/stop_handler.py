@@ -37,17 +37,6 @@ def _add_tokens(a: dict, b: dict) -> dict:
     return out
 
 
-def _walk_skill_ancestor(span_id: str, parent_map: dict, skill_set: set) -> str:
-    seen = set()
-    cur = span_id
-    while cur and cur not in seen:
-        seen.add(cur)
-        if cur in skill_set:
-            return cur
-        cur = parent_map.get(cur)
-    return ""
-
-
 DEBUG = os.environ.get("ALIBABACLOUD_TELEMETRY_DEBUG") == "1"
 
 _EMIT_ORDER = [
@@ -168,20 +157,23 @@ def main() -> int:
                         "end_timestamp": stop_ts,
                     })
 
-                # Aggregate token rows
+                # Map tool_use_id → span_id for tool token attribution.
+                # The viewer reconstructs the parent chain itself, so we no
+                # longer need a parent_map or skill_set here.
                 turn_spans = st.data.get("turn_spans") or []
-                parent_map = {s["span_id"]: s.get("parent_span_id") for s in turn_spans}
-                skill_set = {s["span_id"] for s in turn_spans if s.get("kind") == "skill_invocation"}
-                # Reverse map: tool_use_id → span_id (they're equal in our pre_handler)
                 tool_use_to_span = {
                     s["tool_use_id"]: s["span_id"]
                     for s in turn_spans
                     if s.get("tool_use_id")
                 }
 
+                # Emit only Layer 1 (strict): turn / session totals and
+                # per-tool attribution. The viewer reconstructs Layer 2
+                # (skill-attributed estimates with confidence) by walking
+                # the parent chain at render time — see
+                # telemetry_view/data.py::compute_token_layers.
                 turn_tokens = dict(EMPTY_TOKENS)
                 tool_tokens: dict = {}
-                skill_tokens: dict = {sid: dict(EMPTY_TOKENS) for sid in skill_set}
 
                 for row in token_rows:
                     n = row.get("normalized") or {}
@@ -193,9 +185,6 @@ def main() -> int:
                             "model": row.get("model"),
                             "llm_tokens": dict(n),
                         }
-                        anc = _walk_skill_ancestor(span_id, parent_map, skill_set)
-                        if anc:
-                            skill_tokens[anc] = _add_tokens(skill_tokens[anc], n)
 
                 # Update cumulative session total (only counts traced turns)
                 session_total = st.data.get("aliyun_session_tokens") or dict(EMPTY_TOKENS)
@@ -213,7 +202,6 @@ def main() -> int:
                     "turn_tokens": turn_tokens,
                     "aliyun_session_tokens": session_total,
                     "tool_tokens": tool_tokens,
-                    "skill_tokens": skill_tokens,
                 })
 
             # --- Remote telemetry: emit user_prompt_turn_start ---
