@@ -27,3 +27,6 @@ claude-code-hooks-info.md
 claude-code-tracing-with-langfuse.md
 telemetry_design.md
 aliyun_ai_ops_requirements.md
+
+# Local terraform scratch (cloud resources for ad-hoc testing)
+terraform/
