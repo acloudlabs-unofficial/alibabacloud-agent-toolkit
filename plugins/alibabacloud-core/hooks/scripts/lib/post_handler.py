@@ -711,28 +711,15 @@ def main() -> int:
                         })
             except Exception:
                 pass
-            trace_response = tool_response if isinstance(tool_response, (dict, list)) else tool_result
-            response_data, was_truncated = trace_writer.truncate_response(trace_response)
-            trace_writer.append_trace(client, session_id, {
-                "event": "tool_end",
-                "span_id": tool_use_id or marker_key,
-                "parent_span_id": parent_span,
-                "tool_name": tool_name,
-                "tool_use_id": tool_use_id,
-                "status": status,
-                "error_message": error_message or None,
-                "request_id": request_id or None,
-                "duration_ms": end_ms - start_ms,
-                "tool_response": trace_writer.sanitize_trace_value(response_data),
-                "truncated": was_truncated,
-                "turn": turn,
-                "start_timestamp": start_ms,
-                "end_timestamp": end_ms,
-            })
-            if seed.get("event_type") == "skill_invocation" and tool_name == "Bash":
+            # Display unification: native Skill tool (claude) emits a
+            # skill_invocation event INSTEAD of tool_end so the viewer
+            # renders the lightning icon + real skill name, matching
+            # codex. The matching pre_handler tool_start is suppressed
+            # for Skill so there is no orphan span.
+            if seed.get("event_type") == "skill_invocation" and tool_name in ("Skill", "skill"):
                 trace_writer.append_trace(client, session_id, {
                     "event": "skill_invocation",
-                    "span_id": this_span_id + ".skill",
+                    "span_id": this_span_id,
                     "parent_span_id": parent_span,
                     "tool_name": "Skill",
                     "skill_name": seed.get("skill_name", ""),
@@ -742,6 +729,47 @@ def main() -> int:
                     "start_timestamp": start_ms,
                     "end_timestamp": end_ms,
                 })
+            else:
+                trace_response = tool_response if isinstance(tool_response, (dict, list)) else tool_result
+                response_data, was_truncated = trace_writer.truncate_response(trace_response)
+                trace_writer.append_trace(client, session_id, {
+                    "event": "tool_end",
+                    "span_id": tool_use_id or marker_key,
+                    "parent_span_id": parent_span,
+                    "tool_name": tool_name,
+                    "tool_use_id": tool_use_id,
+                    "status": status,
+                    "error_message": error_message or None,
+                    "request_id": request_id or None,
+                    "duration_ms": end_ms - start_ms,
+                    "tool_response": trace_writer.sanitize_trace_value(response_data),
+                    "truncated": was_truncated,
+                    "turn": turn,
+                    "start_timestamp": start_ms,
+                    "end_timestamp": end_ms,
+                })
+                # Codex bash-as-skill: companion skill_invocation event so
+                # the viewer renders the lightning icon alongside the bash
+                # node. The `.skill` suffix keeps span_id distinct.
+                # parent_span_id points at the bash (this_span_id), not the
+                # bash's parent — that nests the skill inside its bash in
+                # the tree, matching the logical "this bash ran the skill"
+                # relationship. The token walker checks both `id` and
+                # `id.skill` so attribution still works for inner bashes
+                # whose parent chain leads up to the outer bash.
+                if seed.get("event_type") == "skill_invocation" and tool_name == "Bash":
+                    trace_writer.append_trace(client, session_id, {
+                        "event": "skill_invocation",
+                        "span_id": this_span_id + ".skill",
+                        "parent_span_id": this_span_id,
+                        "tool_name": "Skill",
+                        "skill_name": seed.get("skill_name", ""),
+                        "plugin_name": seed.get("plugin_name", ""),
+                        "status": status,
+                        "turn": turn,
+                        "start_timestamp": start_ms,
+                        "end_timestamp": end_ms,
+                    })
         except Exception:
             pass
 

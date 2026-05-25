@@ -183,7 +183,14 @@ def main() -> int:
         pass
 
     # --- Local trace: write tool_start event ---
-    if trace_writer.trace_enabled() and session_id:
+    # Skill is suppressed: post_handler emits a single skill_invocation
+    # event that subsumes both start and end, keeping the trace tidy and
+    # avoiding an orphan tool_start with no matching tool_end.
+    if (
+        trace_writer.trace_enabled()
+        and session_id
+        and tool_name not in ("Skill", "skill")
+    ):
         try:
             now_ms = int(time.time() * 1000)
             trace_writer.append_trace(client, session_id, {
