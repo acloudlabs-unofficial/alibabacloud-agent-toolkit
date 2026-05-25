@@ -171,6 +171,16 @@ def _parse_codex(
             if mdl:
                 current_model = mdl
             continue
+        # Codex 0.132+ writes function_call under response_item (not event_msg).
+        # Capture call_id here so tokens reported in the next token_count get
+        # attributed to the right tool span.
+        if top_type == "response_item":
+            payload = obj.get("payload") or {}
+            if payload.get("type") == "function_call":
+                cid = payload.get("call_id")
+                if isinstance(cid, str) and cid:
+                    pending_call_ids.append(cid)
+            continue
         if top_type != "event_msg":
             continue
         payload = obj.get("payload") or {}
