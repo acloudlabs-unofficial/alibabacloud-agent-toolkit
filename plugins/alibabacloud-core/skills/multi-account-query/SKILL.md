@@ -23,6 +23,18 @@ organization. When the user refers to an account by its display name (alias)
 rather than its UID, this skill resolves the alias first, then assumes into the
 target account to execute the actual resource query.
 
+## Scope Check Before You Start
+
+This skill resolves the **cross-account routing layer only** — alias→UID,
+plus the assume-role hop. If the user's actual request is a **multi-account
+solution pattern** — key rotation across all members, drift / cost / RAM
+audits, billing aggregation, organization-wide compliance scans — invoke
+`alibabacloud-find-skills` first; a packaged multi-account-ops skill captures
+the full workflow (iteration, error rollup, reporting), not just the
+cross-account hop. Use this skill directly only when the user just needs the
+routing primitive for a single-shot query. Full trigger conditions are in
+`mcp-core-best-practices` → Skill Discovery.
+
 ## Prerequisites
 
 - The current credentials must belong to an RD management account (or a delegated

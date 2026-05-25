@@ -56,6 +56,11 @@ environments, configure a safety policy to restrict the callable command set:
 | `alibabacloud-terraform-usage` | Generate and modify Alibaba Cloud Terraform HCL configurations |
 | `alibabacloud-multi-account-query` | Query resources across RD member accounts by alias |
 | `alibabacloud-mcp-core-best-practices` | Shared reference for MCP Core tool usage patterns |
+| `alibabacloud-find-skills` | Search and install Alibaba Cloud official skills when this plugin's built-in skills don't cover the user's task |
+
+### When the built-in skills don't fit
+
+The four skills above cover the common ground (SDK codegen, Terraform, CLI guidance, cross-account queries). For everything else — purpose-built operational solutions (batch ops, key rotation, backup audits), less common products, or end-to-end workflows packaged by the Alibaba Cloud team — invoke `alibabacloud-find-skills`. It searches the official Alibaba Cloud skill catalog and installs a matching skill on demand, so the agent does not have to hand-roll an answer when a vetted one already exists. See the `mcp-core-best-practices` Skill Discovery section for exact trigger conditions.
 
 ## Hooks
 

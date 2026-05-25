@@ -52,6 +52,12 @@ NOT mean you should always run `aliyun` commands locally in the shell.
 - Troubleshooting CLI errors returned by MCP or local execution
 - Guiding users who want to run commands locally in their own terminals
 
+**Pivot to `alibabacloud-find-skills` when:** the user's request reads as a
+solution pattern (batch ops, audits, rotations, scheduled cleanup, runbooks)
+or targets a product not covered by any in-plugin skill — a packaged official
+skill usually beats hand-rolled CLI sequences. See `mcp-core-best-practices`
+→ Skill Discovery for the full trigger list.
+
 ## Agent Execution: AI-mode and User-Agent
 
 **Only applicable when running aliyun commands locally** (not via MCP tools).

@@ -18,6 +18,16 @@ Use the MCP Core tools (`AlibabaCloud___SearchApis`, `AlibabaCloud___ListApis`,
 `AlibabaCloud___CallCLI`) to resolve metadata. Do not guess product codes, SDK
 packages, request models, endpoints, or parameter casing.
 
+## Scope Check Before You Start
+
+This skill generates **SDK code that calls a small number of APIs**. If the
+user's request is instead an **operational pattern** that likely has a
+packaged solution — batch operations, audits, rotations, scheduled cleanup,
+multi-step runbooks — invoke `alibabacloud-find-skills` first to search the
+official catalog. Falling back to SDK synthesis is appropriate only after
+`find-skills` returns no match. Full trigger conditions are in
+`mcp-core-best-practices` → Skill Discovery.
+
 ## Workflow
 
 1. Inspect the local project first.

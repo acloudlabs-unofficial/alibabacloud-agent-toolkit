@@ -97,6 +97,23 @@ Then open Codex `/plugins` and install `alibabacloud-core` and/or `alibabacloud-
 /reload-plugins
 ```
 
+## Use Spec-Ops: Spec-Driven Workflow
+
+Want an expert-guided, spec-driven flow that takes "I need a web app on aliyun" all the way to live infrastructure? One command:
+
+```text
+/alibabacloud-spec-ops:alibabacloud-planning  I need a web app on aliyun
+```
+
+4 stages, auto-chained, **one user gate** (right before deploy):
+
+1. **planning** — expert dialog across **Security / Cost / Efficiency / Stability**; turns vague needs into a precise `design.md` + architecture diagram
+2. **code** — Terraform HCL generated against live `alicloud_*` schemas (IaCService-verified)
+3. **validate** — spec + code-quality reviewers run in parallel → "deploy?"
+4. **execute** — `terraform plan` + `apply` run remotely via IaC Service; remote state persisted
+
+**Day-2 ready.** 再说一句"升配 RDS / 加 Redis / 缩容"，原 `design.md` 自动加载，在已有 `state_id` 上做增量 plan/apply，不重建已有资源。所有产物保存在 `.aliyun-ai-ops-spec/{name}/`，跨会话可审、可迭代。
+
 ## MCP Safety
 
 The plugin defines an MCP server named `alibabacloud-core` with this policy:

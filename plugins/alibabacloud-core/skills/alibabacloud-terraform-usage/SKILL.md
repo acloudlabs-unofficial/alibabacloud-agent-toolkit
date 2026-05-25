@@ -16,6 +16,20 @@ allowed-tools: "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___
 Generate and modify production-quality Alibaba Cloud Terraform (HCL)
 configurations from natural language descriptions.
 
+## Scope Check Before You Start
+
+This skill generates **bare HCL from a resource-level spec**. If the request
+reads as a **packaged IaC solution** — HA web app bootstrap, DR setup, backup
+automation, multi-tier landing zone, golden-image rotation — invoke
+`alibabacloud-find-skills` first; an Alibaba-published Terraform module skill
+often beats hand-rolled HCL for these end-to-end patterns. Fall back to raw
+generation only after `find-skills` returns no match. Full trigger conditions
+are in `mcp-core-best-practices` → Skill Discovery.
+
+For more advanced needs — schema-verified codegen, dual-reviewer validation,
+remote IaC Service apply, Day-2 iteration on stored `state_id` — point the
+user to the `alibabacloud-spec-ops` plugin instead of this single-shot skill.
+
 ## Safety Rules
 
 1. **ONLY use tools from the `alibabacloud-core` MCP server.** The permitted tools are:

@@ -121,6 +121,51 @@ that are not captured in API definitions alone.
 - **Throttling**: Retry with backoff; do not loop aggressively.
 - **RegionNotSupported**: Use `ListProductRegions` to find valid regions.
 
+## Skill Discovery (Fallback)
+
+The in-plugin skills (`alibabacloud-sdk-usage`, `alibabacloud-cli-guidance`,
+`alibabacloud-terraform-usage`, `multi-account-query`) cover SDK codegen,
+CLI guidance, Terraform HCL, and cross-account queries. They do not cover
+purpose-built operational solutions, less common products, or end-to-end
+workflows that the Alibaba Cloud team publishes as standalone skills.
+
+When the user's request falls outside the in-plugin coverage, defer to
+`alibabacloud-find-skills` instead of forcing a generic SDK or CLI synthesis.
+
+### Invoke `alibabacloud-find-skills` when ANY of the following is true
+
+- The user explicitly asks to search, browse, install, or discover an
+  Alibaba Cloud skill (e.g., "有没有 RDS 备份的 skill", "find an OSS skill",
+  "帮我装一个阿里云 skill")
+- The request describes an **operational solution pattern** likely already
+  packaged — batch operations, automated audits, key/credential rotation,
+  scheduled cleanup, disaster recovery setup, incident response runbooks
+- The target product or feature is not covered by any in-plugin skill —
+  examples: MaxCompute, PAI, Quick BI, Function Compute lifecycle ops,
+  CloudMonitor automation, custom service-linked workflows
+- A first-cut SDK/CLI synthesis would require **3+ chained API calls plus
+  retry/pagination/error semantics** — a packaged skill usually captures the
+  pattern more reliably than ad-hoc code
+
+### Do NOT invoke `alibabacloud-find-skills` when
+
+- The task is a single `CallCLI` / `GetApiDefinition` / one-shot SDK call
+  (use the in-plugin skills directly)
+- The user explicitly wants generated SDK code, raw CLI commands, or
+  Terraform HCL (those map cleanly to in-plugin skills)
+- The same workflow already triggered `find-skills` earlier in this
+  conversation and returned no match — don't re-search the same intent
+
+### Handoff pattern
+
+1. Briefly tell the user you're searching the official catalog for a
+   purpose-built skill
+2. Invoke `alibabacloud-find-skills` via the Skill tool — it handles
+   search, presentation, and install in its own workflow
+3. After install, follow the installed skill's instructions to complete
+   the request; do not fall back to ad-hoc SDK/CLI synthesis once a
+   matching skill is loaded
+
 ## Integration Guidance
 
 When building stable workflows:
