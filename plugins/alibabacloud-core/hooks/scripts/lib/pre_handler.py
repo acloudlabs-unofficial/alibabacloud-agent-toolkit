@@ -152,33 +152,45 @@ def main() -> int:
     key = tool_use_id or _sanitize_tool_name(tool_name)
     parent_span = None
     turn = 0
+    is_duplicate = False
     try:
         with SessionState(client, session_id) as st:
             st.data["tool_starts"][key] = int(time.time() * 1000)
             # --- Local trace: mark turn active, get parent span ---
             if trace_writer.trace_enabled():
                 st.data["turn_has_trace"] = True
-                # Last-Skill-Wins: prefer current skill, fall back to prompt
-                parent_span = (
-                    st.data.get("current_skill_span_id")
-                    or st.data.get("prompt_span_id")
-                )
                 this_span_id = tool_use_id or key
-                # Never let a span be its own parent (defensive guard
-                # symmetric with post_handler).
-                if parent_span == this_span_id:
-                    parent_span = st.data.get("prompt_span_id")
+                # Dedup: Claude fires PreToolUse twice for the same
+                # tool_use_id within one turn (symmetric with the
+                # PostToolUse dedup via posted_tool_use_ids). Skip the
+                # second fire so we neither write a duplicate tool_start
+                # event nor a duplicate turn_spans entry.
+                pre_seen = st.data.setdefault("pre_seen_ids", [])
+                if this_span_id and this_span_id in pre_seen:
+                    is_duplicate = True
+                else:
+                    if this_span_id:
+                        pre_seen.append(this_span_id)
+                    # Last-Skill-Wins: prefer current skill, fall back to prompt
+                    parent_span = (
+                        st.data.get("current_skill_span_id")
+                        or st.data.get("prompt_span_id")
+                    )
+                    # Never let a span be its own parent (defensive guard
+                    # symmetric with post_handler).
                     if parent_span == this_span_id:
-                        parent_span = None
-                turn = int(st.data.get("turn", 0))
-                # Record this span for end-of-turn token aggregation
-                st.data.setdefault("turn_spans", []).append({
-                    "span_id": this_span_id,
-                    "parent_span_id": parent_span,
-                    "kind": "tool",
-                    "tool_use_id": tool_use_id,
-                    "tool_name": tool_name,
-                })
+                        parent_span = st.data.get("prompt_span_id")
+                        if parent_span == this_span_id:
+                            parent_span = None
+                    turn = int(st.data.get("turn", 0))
+                    # Record this span for end-of-turn token aggregation
+                    st.data.setdefault("turn_spans", []).append({
+                        "span_id": this_span_id,
+                        "parent_span_id": parent_span,
+                        "kind": "tool",
+                        "tool_use_id": tool_use_id,
+                        "tool_name": tool_name,
+                    })
     except Exception:
         pass
 
@@ -189,6 +201,7 @@ def main() -> int:
     if (
         trace_writer.trace_enabled()
         and session_id
+        and not is_duplicate
         and tool_name not in ("Skill", "skill")
     ):
         try:

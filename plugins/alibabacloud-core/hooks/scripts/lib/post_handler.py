@@ -63,6 +63,116 @@ SKILLS_PATH_RE = re.compile(
 )
 SKILL_FILE_RE = re.compile(r"/skills/(?P<skill>[A-Za-z0-9_-]+)/SKILL\.md\b")
 PLUGIN_FROM_PATH_RE = re.compile(r"/(?P<plugin>alibabacloud[-_a-zA-Z0-9]*)/")
+# Skills set ALIBABA_CLOUD_USER_AGENT=AlibabaCloud-Agent-Skills/<skill>[/...]
+# on every aliyun call they emit. Captures the skill name regardless of where
+# in the bash command line it appears (env prefix, `export`, etc.).
+SKILL_UA_RE = re.compile(
+    r"AlibabaCloud-Agent-Skills/(?P<skill>[A-Za-z0-9_.-]+)"
+)
+
+
+def _path_skill_tag(tool_input: Any) -> Optional[str]:
+    """Best-effort skill tag for a tool call.
+
+    Returns ``"<plugin>:<skill>"`` when either:
+      1. A path-bearing field in tool_input lives inside an alibabacloud
+         plugin's ``skills/`` tree (file_path / command / pattern), OR
+      2. A bash command's ``ALIBABA_CLOUD_USER_AGENT`` env carries the
+         ``AlibabaCloud-Agent-Skills/<skill>`` marker that skills set when
+         they shell out — covers aliyun calls that don't touch any skill
+         file but execute on the skill's behalf.
+
+    Plugin is unknown for case (2), so we tag ``alibabacloud:<skill>``.
+    """
+    if not isinstance(tool_input, dict):
+        return None
+    # Case 1: path-based detection.
+    for key in ("file_path", "filePath", "path", "command", "pattern"):
+        v = tool_input.get(key)
+        if not isinstance(v, str) or not v:
+            continue
+        m = SKILLS_PATH_RE.search(v.replace("\\", "/"))
+        if not m:
+            continue
+        plugin = m.group("plugin") or ""
+        skill = m.group("skill") or ""
+        if plugin and skill and PLUGIN_PREFIX in plugin.lower():
+            return f"{plugin}:{skill}"
+    # Case 2: User-Agent based detection on bash commands.
+    cmd = tool_input.get("command")
+    if isinstance(cmd, str) and cmd:
+        m = SKILL_UA_RE.search(cmd)
+        if m:
+            skill = m.group("skill") or ""
+            if skill:
+                return f"alibabacloud:{skill}"
+    return None
+
+
+# `aliyun <service> <action>` — first two non-flag tokens after the binary.
+# Matches across compound shells (`cd dir && aliyun ecs Describe...`) by
+# anchoring on the binary token (already gated by ALIYUN_INVOCATION_RE upstream).
+_ALIYUN_CMD_PARTS_RE = re.compile(
+    r"\baliyun\s+(?P<service>[a-zA-Z][\w-]*)\s+(?P<action>[A-Z][\w]*)"
+)
+_ALIYUN_REGION_RE = re.compile(
+    r"--(?:RegionId|region-id|region)\s*[=\s]\s*(?P<region>[A-Za-z0-9_-]+)"
+)
+
+
+def _cloud_api_meta(
+    tool_name: str, tool_input: Any, request_id: str
+) -> Optional[dict]:
+    """Extract ``{service, action, region, request_id}`` for tool calls that
+    invoke an Alibaba Cloud OpenAPI. Pure parsing of the input string — no
+    network, no inference. Returns None when nothing useful surfaces.
+
+    Sources:
+      * Bash with `aliyun ...` command
+      * MCP CallCLI with `command` field
+      * MCP non-CLI: tool_name often encodes the action; tool_input has Region.
+    """
+    if not isinstance(tool_input, dict):
+        return None
+    cmd = ""
+    if tool_name == "Bash":
+        cmd = tool_input.get("command", "") or ""
+    else:
+        # MCP shape: CallCLI uses command, others may not have one.
+        cmd = tool_input.get("command", "") or ""
+
+    service = ""
+    action = ""
+    region = ""
+    if isinstance(cmd, str) and cmd:
+        m = _ALIYUN_CMD_PARTS_RE.search(cmd)
+        if m:
+            service = m.group("service") or ""
+            action = m.group("action") or ""
+        m2 = _ALIYUN_REGION_RE.search(cmd)
+        if m2:
+            region = m2.group("region") or ""
+
+    # Fallbacks from tool_input fields (MCP non-CallCLI tools).
+    if not region:
+        for k in ("RegionId", "region_id", "Region", "region"):
+            v = tool_input.get(k)
+            if isinstance(v, str) and v:
+                region = v
+                break
+
+    if not (service or action or region or request_id):
+        return None
+    out: dict = {}
+    if service:
+        out["service"] = service
+    if action:
+        out["action"] = action
+    if region:
+        out["region"] = region
+    if request_id:
+        out["request_id"] = request_id
+    return out or None
 
 # Aliyun CLI invocation: matches `aliyun ...` at start of command OR
 # after a shell separator (`&&`, `||`, `;`, `|`, `\n`, `(`), with optional
@@ -686,10 +796,33 @@ def main() -> int:
             this_span_id = tool_use_id or marker_key
             try:
                 with SessionState(client, session_id) as st:
-                    parent_span = (
-                        st.data.get("current_skill_span_id")
-                        or st.data.get("prompt_span_id")
-                    )
+                    # Prefer the parent recorded at pre-tool-trace time
+                    # (turn_spans entry). At start time we captured the
+                    # correct parent — typically the prompt for top-level
+                    # tools, or the current skill for nested ones. Re-reading
+                    # current_skill_span_id here would incorrectly nest
+                    # parallel siblings under whichever sibling's PostToolUse
+                    # fired first.
+                    pre_parent = None
+                    for s in (st.data.get("turn_spans") or []):
+                        if s.get("span_id") == this_span_id:
+                            pre_parent = s.get("parent_span_id")
+                            break
+                    if pre_parent is not None:
+                        parent_span = pre_parent
+                    else:
+                        parent_span = (
+                            st.data.get("current_skill_span_id")
+                            or st.data.get("prompt_span_id")
+                        )
+                    # Skills are always direct children of the prompt, never
+                    # of another skill. Otherwise sequential skill_invocations
+                    # within one prompt (e.g. Claude: model calls sdk-usage,
+                    # waits, then calls terraform-usage) would chain into a
+                    # ladder because the second skill's PRE fires after the
+                    # first's POST already wrote current_skill_span_id.
+                    if seed.get("event_type") == "skill_invocation":
+                        parent_span = st.data.get("prompt_span_id")
                     # Never let a span be its own parent (would create a
                     # cycle when a duplicate PostToolUse for a Skill reads
                     # current_skill_span_id that the first call just set to
@@ -747,6 +880,8 @@ def main() -> int:
                     "turn": turn,
                     "start_timestamp": start_ms,
                     "end_timestamp": end_ms,
+                    "skill_tag": _path_skill_tag(tool_input),
+                    "cloud_api": _cloud_api_meta(tool_name, tool_input, request_id),
                 })
                 # Codex bash-as-skill: companion skill_invocation event so
                 # the viewer renders the lightning icon alongside the bash

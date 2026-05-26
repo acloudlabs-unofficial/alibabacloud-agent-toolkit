@@ -123,7 +123,10 @@ def _parse_claude(
         last_msg_id = msg_id or last_msg_id
         call_idx += 1
         rows.append({
-            "ts": _now_iso(),
+            # Claude transcript writes the wall-clock timestamp on each
+            # assistant entry; falling back to _now_iso() would cluster every
+            # call at the stop_handler invocation moment, breaking turn-order.
+            "ts": obj.get("timestamp") or _now_iso(),
             "client": "claude-code",
             "session_id": obj.get("sessionId") or "",
             "turn_id": fallback_turn_id,

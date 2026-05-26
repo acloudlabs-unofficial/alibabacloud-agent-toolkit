@@ -167,24 +167,35 @@ def main() -> int:
                     if s.get("tool_use_id")
                 }
 
-                # Emit only Layer 1 (strict): turn / session totals and
-                # per-tool attribution. The viewer reconstructs Layer 2
-                # (skill-attributed estimates with confidence) by walking
-                # the parent chain at render time — see
+                # Emit Layer 1 (strict): turn / session totals plus a
+                # first-class llm_calls list — one entry per real LLM call,
+                # tokens attributed to the call (not fanned out to each
+                # sibling tool span). The viewer reconstructs Layer 2
+                # (skill-attributed estimates) by walking the parent chain
+                # of each call's tool spans — see
                 # telemetry_view/data.py::compute_token_layers.
                 turn_tokens = dict(EMPTY_TOKENS)
+                llm_calls: list = []
+                # tool_tokens kept as empty dict for backward compatibility:
+                # old viewers fall through their legacy path and render no
+                # chips rather than crashing or showing duplicated numbers.
                 tool_tokens: dict = {}
 
                 for row in token_rows:
                     n = row.get("normalized") or {}
                     turn_tokens = _add_tokens(turn_tokens, n)
-                    for tu_id in row.get("tool_use_ids") or []:
-                        span_id = tool_use_to_span.get(tu_id) or tu_id
-                        tool_tokens[span_id] = {
-                            "call_index": row.get("call_index"),
-                            "model": row.get("model"),
-                            "llm_tokens": dict(n),
-                        }
+                    tool_use_ids = list(row.get("tool_use_ids") or [])
+                    llm_calls.append({
+                        "call_index": row.get("call_index"),
+                        "model": row.get("model"),
+                        "ts": row.get("ts"),
+                        "tool_use_ids": tool_use_ids,
+                        "tool_span_ids": [
+                            tool_use_to_span.get(tu_id) or tu_id
+                            for tu_id in tool_use_ids
+                        ],
+                        "llm_tokens": dict(n),
+                    })
 
                 # Update cumulative session total (only counts traced turns)
                 session_total = st.data.get("aliyun_session_tokens") or dict(EMPTY_TOKENS)
@@ -201,6 +212,7 @@ def main() -> int:
                     "end_timestamp": stop_ts,
                     "turn_tokens": turn_tokens,
                     "aliyun_session_tokens": session_total,
+                    "llm_calls": llm_calls,
                     "tool_tokens": tool_tokens,
                 })
 
@@ -232,6 +244,9 @@ def main() -> int:
                 # always within the same turn, so this keeps memory bounded
                 # without losing any dedup signal.
                 st.data["posted_tool_use_ids"] = []
+                # Same for pre-tool-use dedup set (claude fires PreToolUse
+                # twice per tool_use_id within one turn).
+                st.data["pre_seen_ids"] = []
 
             # Increment turn (existing behavior)
             st.data["turn"] = int(st.data.get("turn", 0)) + 1

@@ -686,10 +686,33 @@ def main() -> int:
             this_span_id = tool_use_id or marker_key
             try:
                 with SessionState(client, session_id) as st:
-                    parent_span = (
-                        st.data.get("current_skill_span_id")
-                        or st.data.get("prompt_span_id")
-                    )
+                    # Prefer the parent recorded at pre-tool-trace time
+                    # (turn_spans entry). At start time we captured the
+                    # correct parent — typically the prompt for top-level
+                    # tools, or the current skill for nested ones. Re-reading
+                    # current_skill_span_id here would incorrectly nest
+                    # parallel siblings under whichever sibling's PostToolUse
+                    # fired first.
+                    pre_parent = None
+                    for s in (st.data.get("turn_spans") or []):
+                        if s.get("span_id") == this_span_id:
+                            pre_parent = s.get("parent_span_id")
+                            break
+                    if pre_parent is not None:
+                        parent_span = pre_parent
+                    else:
+                        parent_span = (
+                            st.data.get("current_skill_span_id")
+                            or st.data.get("prompt_span_id")
+                        )
+                    # Skills are always direct children of the prompt, never
+                    # of another skill. Otherwise sequential skill_invocations
+                    # within one prompt (e.g. Claude: model calls sdk-usage,
+                    # waits, then calls terraform-usage) would chain into a
+                    # ladder because the second skill's PRE fires after the
+                    # first's POST already wrote current_skill_span_id.
+                    if seed.get("event_type") == "skill_invocation":
+                        parent_span = st.data.get("prompt_span_id")
                     # Never let a span be its own parent (would create a
                     # cycle when a duplicate PostToolUse for a Skill reads
                     # current_skill_span_id that the first call just set to

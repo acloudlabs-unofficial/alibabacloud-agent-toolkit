@@ -578,3 +578,39 @@ pathological large payloads.
 `codex-hooks.json` and `lib/post_handler.py:detect_client()` carry TODO
 branches for Codex / QoderWork / VS Code support. Phase 1 only ships
 Claude Code.
+
+## Codex 安装与启用
+
+Codex 默认不开启插件 hooks。安装本插件后,跑一次 enable 脚本即可:
+
+```bash
+# 1) 安装插件 (Codex marketplace UI 或 CLI; 以 Codex 文档为准)
+codex plugin install alibabacloud-agent-toolkit
+
+# 2) 一键启用 hooks (会自动备份 ~/.codex/config.toml)
+bash ~/.codex/plugins/cache/alibabacloud-agent-toolkit/alibabacloud-core/<version>/tools/codex/enable-codex-hooks.sh
+
+# 3) 重启 Codex CLI
+```
+
+校验:用 `uvx alibabacloud.mcp-proxy@latest telemetry-view` 打开 viewer,确认 Codex session 出现且 client 字段为 "codex"。
+
+### `turn_end` 中的 token 字段(供 viewer 升级使用)
+
+每个 `turn_end` 事件(仅当本 turn 含阿里云相关活动时写入)携带:
+
+| 字段 | 含义 |
+|---|---|
+| `turn_tokens` | 本 turn 内所有 LLM 调用 token 之和 |
+| `aliyun_session_tokens` | 仅累加 traced turn 的 session 累计 |
+| `llm_calls` | `[ { call_index, model, ts, tool_use_ids, tool_span_ids, llm_tokens } ]` 每个元素 = 一次真正的 LLM 调用;`llm_tokens` 归属于该次调用本身,**不再**复制到它派生的每个工具 span 上 |
+| `tool_tokens` | (legacy) 旧版按工具 span 扇出的 token map。新版 hook 总是写入 `{}`,仅为向后兼容字段形状;旧 viewer 看到空 dict 后不再渲染重复数字,新 viewer 走 `llm_calls` 路径 |
+
+> 改动动因:旧的 `tool_tokens` 把同一次 LLM 调用的 token 复制到该调用派生出的每个并行 bash 上,导致 viewer 在按 skill 聚合时按工具数倍数放大(N 个并行 bash → 5× 放大)。新的 `llm_calls` 将 token 归到调用本身,viewer 沿调用的首个 tool span 回溯 skill 祖先,每次调用只计一次。
+
+> Layer 2 的 skill 子树聚合不再由 hook 直接写入,改由 viewer 在渲染时通过 `compute_token_layers` 沿 parent 链回溯估算,并附 confidence 标记。
+
+token 数据来源于:
+
+- Claude Code:`transcript_path` 指向的 JSONL,按 `message.id` 去重 assistant 行的 `usage`。
+- Codex:`~/.codex/sessions/...` JSONL 中 `event_msg payload.type=token_count`,`info.last_token_usage` 作为单次。
