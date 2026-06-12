@@ -15,7 +15,7 @@ failure
 --cli-command
 aliyun ecs DescribeInstances
 --event-tag
-start-fallback
+cli_command
 --error-message
 ConnectionRefused
 --span-id

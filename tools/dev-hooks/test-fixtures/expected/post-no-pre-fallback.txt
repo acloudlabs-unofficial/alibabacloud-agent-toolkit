@@ -17,6 +17,6 @@ mcp-core-best-practices
 --plugin-name
 alibabacloud-core
 --event-tag
-start-fallback
+skill_invocation
 --span-id
 toolu_fb

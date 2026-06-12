@@ -19,6 +19,6 @@ alibabacloud-core
 --cli-command
 {"filter":"Ecs"}
 --event-tag
-start-fallback
+mcp_tool_use
 --span-id
 toolu_listproducts

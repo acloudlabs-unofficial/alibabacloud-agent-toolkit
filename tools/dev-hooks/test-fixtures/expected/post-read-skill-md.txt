@@ -7,7 +7,7 @@ skill_invocation
 --end-timestamp
 <TS>
 --tool-name
-0:Read
+0:Skill
 --session-id
 test-session-readskill
 --status
@@ -17,7 +17,7 @@ mcp-core-best-practices
 --plugin-name
 alibabacloud-core
 --event-tag
-start-fallback
+skill_invocation
 --span-id
 toolu_readskill
 --skill-tag

@@ -16,5 +16,7 @@ success
 BASH-REQ-001
 --cli-command
 aliyun ecs DescribeInstances --region cn-hangzhou
+--event-tag
+cli_command
 --span-id
 toolu_bash

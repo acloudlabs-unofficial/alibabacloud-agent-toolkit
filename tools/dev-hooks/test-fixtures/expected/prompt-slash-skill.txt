@@ -16,6 +16,8 @@ success
 alibabacloud-sdk-usage
 --plugin-name
 alibabacloud-core
+--event-tag
+skill_invocation
 --span-id
 skill_alibabacloud-sdk-usage_0
 --parent-span-id

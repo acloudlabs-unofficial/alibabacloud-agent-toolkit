@@ -11,21 +11,22 @@ This plugin includes:
 
 ## Install
 
-### Claude Code
+Recommended:
 
-```text
-/plugin marketplace add acloudlabs-unofficial/alibabacloud-agent-toolkit
-/plugin install alibabacloud-core@alibabacloud-agent-toolkit
-/reload-plugins
+```bash
+npx openplugin acloudlabs-unofficial/alibabacloud-agent-toolkit --plugin alibabacloud-core
 ```
 
-### Codex
+`openplugin` installs the selected plugin into the detected clients (Claude
+Code, Codex CLI, QoderWork) and configures client-specific hooks/MCP wiring.
 
-```text
-codex plugin marketplace add acloudlabs-unofficial/alibabacloud-agent-toolkit
+To target one client only, add a client flag:
+
+```bash
+npx openplugin acloudlabs-unofficial/alibabacloud-agent-toolkit --plugin alibabacloud-core --claude
+npx openplugin acloudlabs-unofficial/alibabacloud-agent-toolkit --plugin alibabacloud-core --codex
+npx openplugin acloudlabs-unofficial/alibabacloud-agent-toolkit --plugin alibabacloud-core --qoderwork
 ```
-
-Then launch Codex and install the `alibabacloud-core` plugin from `/plugins`.
 
 ## MCP
 

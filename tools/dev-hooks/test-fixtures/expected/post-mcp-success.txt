@@ -20,5 +20,7 @@ alibabacloud-core
 REQ-ABC-123
 --cli-command
 aliyun ecs DescribeInstances --region cn-hangzhou
+--event-tag
+mcp_callcli
 --span-id
 toolu_001

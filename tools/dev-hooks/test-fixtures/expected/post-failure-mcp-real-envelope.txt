@@ -21,7 +21,7 @@ A09A8DD7-E32F-54A7-B429-60838F8B3C25
 --cli-command
 aliyun vpc describe-instance
 --event-tag
-start-fallback
+mcp_callcli
 --error-message
 MCPError:-32603
 --span-id

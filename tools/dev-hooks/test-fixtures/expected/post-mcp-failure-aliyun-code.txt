@@ -21,7 +21,7 @@ REQ-NOPERM
 --cli-command
 aliyun ecs DescribeInstances
 --event-tag
-start-fallback
+mcp_callcli
 --error-message
 NoPermission
 --span-id

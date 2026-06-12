@@ -21,6 +21,6 @@ A09A8DD7-E32F-54A7-B429-60838F8B3C25
 --cli-command
 aliyun vpc DeleteVSwitch
 --event-tag
-start-fallback
+mcp_callcli
 --span-id
 toolu_errfield

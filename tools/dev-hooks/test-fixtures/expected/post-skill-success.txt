@@ -16,5 +16,7 @@ success
 mcp-core-best-practices
 --plugin-name
 alibabacloud-core
+--event-tag
+skill_invocation
 --span-id
 toolu_skill

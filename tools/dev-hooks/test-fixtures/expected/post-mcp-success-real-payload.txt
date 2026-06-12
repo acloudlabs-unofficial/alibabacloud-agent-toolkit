@@ -21,6 +21,6 @@ DC946F93-C0F8-5C47-87E6-E3E5757A420D
 --cli-command
 aliyun vpc DescribeVSwitches --RegionId cn-hangzhou --VpcId My-TestVpc
 --event-tag
-start-fallback
+mcp_callcli
 --span-id
 toolu_vrtx_01WTjPJYW3iBsyPK2St7Nu2k

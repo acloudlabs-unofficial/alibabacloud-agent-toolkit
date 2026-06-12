@@ -44,15 +44,14 @@ Two infrastructure lanes run underneath every stage:
 
 ### 1. Install the plugin
 
-In Claude Code:
+Recommended:
 
-```text
-/plugin marketplace add acloudlabs-unofficial/alibabacloud-agent-toolkit
-/plugin install alibabacloud-spec-ops@alibabacloud-agent-toolkit
-/reload-plugins
+```bash
+npx openplugin acloudlabs-unofficial/alibabacloud-agent-toolkit --plugin alibabacloud-spec-ops
 ```
 
-For Codex and other clients, see [Install](#install) below.
+`openplugin` installs the selected plugin into the detected clients (Claude
+Code, Codex CLI, QoderWork) and configures client-specific hooks/MCP wiring.
 
 ### 2. One-time prerequisites
 
@@ -180,21 +179,19 @@ All artifacts live under `.aliyun-ai-ops-spec/{requirement-name}/`:
 
 ## Install
 
-### Claude Code
+Recommended:
 
-```text
-/plugin marketplace add acloudlabs-unofficial/alibabacloud-agent-toolkit
-/plugin install alibabacloud-spec-ops@alibabacloud-agent-toolkit
-/reload-plugins
+```bash
+npx openplugin acloudlabs-unofficial/alibabacloud-agent-toolkit --plugin alibabacloud-spec-ops
 ```
 
-### Codex
+To target one client only, add a client flag:
 
-```text
-codex plugin marketplace add acloudlabs-unofficial/alibabacloud-agent-toolkit
+```bash
+npx openplugin acloudlabs-unofficial/alibabacloud-agent-toolkit --plugin alibabacloud-spec-ops --claude
+npx openplugin acloudlabs-unofficial/alibabacloud-agent-toolkit --plugin alibabacloud-spec-ops --codex
+npx openplugin acloudlabs-unofficial/alibabacloud-agent-toolkit --plugin alibabacloud-spec-ops --qoderwork
 ```
-
-Then launch Codex and install the `alibabacloud-spec-ops` plugin from `/plugins`.
 
 ## MCP
 

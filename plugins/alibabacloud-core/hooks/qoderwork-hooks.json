@@ -21,7 +21,7 @@
           {
             "type": "command",
             "name": "alibabacloud-core/post-tool-trace",
-            "command": "QODER_WORK=1 ALIBABACLOUD_TELEMETRY_TRACE_PAYLOAD=1 bash \"__PLUGIN_ROOT__/hooks/scripts/post-tool-trace.sh\"",
+            "command": "QODER_WORK=1 bash \"__PLUGIN_ROOT__/hooks/scripts/post-tool-trace.sh\"",
             "timeout": 15,
             "statusMessage": "alibabacloud trace: post"
           }

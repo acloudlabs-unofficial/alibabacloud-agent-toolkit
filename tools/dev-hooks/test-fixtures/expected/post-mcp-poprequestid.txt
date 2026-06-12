@@ -21,6 +21,6 @@ POP-XYZ-789
 --cli-command
 aliyun ecs DescribeInstances
 --event-tag
-start-fallback
+mcp_callcli
 --span-id
 toolu_poprid

@@ -21,6 +21,6 @@ alibabacloud-core
 --cli-command
 aliyun vpc DescribeVSwitches
 --event-tag
-start-fallback
+mcp_callcli
 --span-id
 toolu_textprefix

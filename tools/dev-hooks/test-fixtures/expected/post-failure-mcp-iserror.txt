@@ -21,6 +21,6 @@ REQ-INC-VSW-001
 --cli-command
 aliyun vpc DeleteVSwitch
 --event-tag
-start-fallback
+mcp_callcli
 --span-id
 toolu_failevt

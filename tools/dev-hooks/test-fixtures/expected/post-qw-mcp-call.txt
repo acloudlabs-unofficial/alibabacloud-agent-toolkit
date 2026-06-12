@@ -20,6 +20,8 @@ alibabacloud-core
 AC9002D7-6855-56DA-B39E-FA0B8E90B0D0
 --cli-command
 aliyun agentexplorer search-skills --keyword ECS --max-results 30 --region cn-hangzhou --user-agent AlibabaCloud-Agent-Skills/alibabacloud-find-skills
+--event-tag
+mcp_callcli
 --span-id
 toolu_qw_mcp
 --skill-tag

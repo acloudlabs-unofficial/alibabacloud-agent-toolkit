@@ -19,7 +19,7 @@ alibabacloud-core
 --cli-command
 aliyun ecs DescribeInstances
 --event-tag
-start-fallback
+mcp_callcli
 --error-message
 InvalidParameter
 --span-id

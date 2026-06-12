@@ -19,6 +19,6 @@ alibabacloud-core
 --cli-command
 {"apiName":"DescribeInstances","apiVersion":"2014-05-26","product":"Ecs"}
 --event-tag
-start-fallback
+mcp_tool_use
 --span-id
 toolu_getapidef

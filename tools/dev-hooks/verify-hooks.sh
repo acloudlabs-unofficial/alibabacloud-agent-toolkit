@@ -39,6 +39,7 @@ required=(
     "scripts/lib/stop_handler.py"
     "scripts/lib/sanitize.py"
     "scripts/lib/state.py"
+    "scripts/lib/token_recorder.py"
     "scripts/lib/trace_writer.py"
 )
 for f in "${required[@]}"; do
@@ -62,7 +63,7 @@ for plugin in "$repoRoot"/plugins/*/; do
     name=$(basename "$plugin")
     [ "$name" = "alibabacloud-core" ] && continue
     if [ -d "$plugin/hooks" ]; then
-        diffOut=$(diff -r "$canonical" "$plugin/hooks" 2>&1 || true)
+        diffOut=$(diff -r -x __pycache__ -x '*.pyc' "$canonical" "$plugin/hooks" 2>&1 || true)
         if [ -n "$diffOut" ]; then
             echo "FAIL: $name/hooks diverged from canonical alibabacloud-core/hooks:"
             echo "$diffOut"
