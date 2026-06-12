@@ -329,10 +329,12 @@ SUCCESS / FAILED
 **做法：**
 
 1. 用 Bash 找到并读取 guide：
+
    ```bash
    GUIDE=$(find ~/.qoderwork/plugins-custom ~/Desktop/alibabacloud-agent-toolkit -path "*/alibabacloud-executing-plans/references/architecture-topology-html-guide.md" 2>/dev/null | head -1)
    cat "$GUIDE"
    ```
+
    找不到就停下告诉用户。**必须读完这个文件再动手，不准凭记忆生成。**
 
 2. 调用 `aliyun iacservice get-execute-state --state-id {STATE_ID}` 获取真实部署状态。

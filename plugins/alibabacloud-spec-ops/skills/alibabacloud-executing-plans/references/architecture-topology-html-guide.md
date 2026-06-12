@@ -255,6 +255,7 @@ verbatim or the family-resemblance breaks.
 ```
 
 Typography:
+
 - `font-family: 'Google Sans', 'Roboto', system-ui, sans-serif;`
 - IDs / IPs / CIDRs / endpoints **always** wrapped in `'Roboto Mono', monospace`.
 - Body 14 px, line-height 1.5, antialiased.
@@ -356,6 +357,7 @@ Counter unit by category (Chinese measure word):
 ```
 
 Rules:
+
 - Use 4 to 6 cards. Skip cards with no data (e.g. no SLB → skip SLB card).
 - **Never** include `state_id` or `last_validation_id` — those are operator
   metadata and clutter the UX.
@@ -409,6 +411,7 @@ gutters host external/regional cards.
 #### Frame label/meta convention
 
 Each `.frame` exposes its identity through two pinned chips:
+
 - `.frame-label` (top-left, colored): family + name. e.g. `VPC · python-web-vpc`
 - `.frame-meta` (top-right, mono, secondary): CIDR + ID short form
 
@@ -443,6 +446,7 @@ Body row count: **3 to 5**. More than that and the card grows unbalanced; less
 than 3 looks empty.
 
 Status pill mapping (use `.dot` modifier so it gets a leading dot):
+
 | Terraform/runtime status | Pill class |
 |---|---|
 | `Running`, `Available`, `Active`, `Online`, `InUse` | `running` (green) |
@@ -541,6 +545,7 @@ than precision here.
 ```
 
 Mappings to make:
+
 - A resource that needs a **public IP** lives in the LEFT chain (Internet → EIP → … target inside center).
 - A resource with `vpc_id` and `vswitch_id` set lives in the CENTER, inside its
   matching VPC/VSwitch/SG nesting.
@@ -584,6 +589,7 @@ Each connection record:
 ```
 
 `dir`:
+
 - `down` / `up` — vertical straight line (use when both anchors share an X axis).
 - `right` — auto L-shape or smooth Bézier (the JS picks based on relative positions).
 
@@ -737,6 +743,7 @@ The SVG `<defs>` arrowheads (one per color) are required:
   — successful creation, not "last apply").
 - Region label in the overview head: include both Chinese alias and the
   Alibaba region ID. Lookup table:
+
   | Region ID | 中文别名 |
   |---|---|
   | `cn-hangzhou` | 华东 1 |
