@@ -3,9 +3,10 @@ name: mcp-core-best-practices
 description: >
   Shared reference for using Alibaba Cloud OpenAPI MCP Server Core effectively.
   Covers tool usage patterns, API exploration workflow, CLI command generation,
-  cross-account access, and safety policy configuration. Referenced by other
-  alibabacloud-core skills as the canonical guide for MCP Core interactions.
-allowed-tools: "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___SearchApis,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___GetApiDefinition,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___ListApis,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___ListProductRegions,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___GenerateCLICommand,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___ListProducts,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___SearchDocument,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___ReadDocument"
+  scripted execution, async task polling, cross-account access, and safety policy
+  configuration. Referenced by other alibabacloud-core skills as the canonical
+  guide for MCP Core interactions.
+allowed-tools: "mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___CallCLI,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___SearchApis,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___GetApiDefinition,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___ListApis,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___ListProductRegions,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___GenerateCLICommand,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___ListProducts,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___SearchDocument,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___ReadDocument,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___RunScript,mcp__plugin_alibabacloud-core_alibabacloud-core__AlibabaCloud___GetTask"
 ---
 
 # Alibaba Cloud MCP Core Best Practices
@@ -27,6 +28,8 @@ APIs without requiring pre-selection of specific operations.
 | `AlibabaCloud___ListProducts` | List all Alibaba Cloud products |
 | `AlibabaCloud___SearchDocument` | Search Alibaba Cloud documentation by keyword |
 | `AlibabaCloud___ReadDocument` | Read a specific documentation page by URL |
+| `AlibabaCloud___RunScript` | Start a restricted Python task with structured Alibaba Cloud OpenAPI access |
+| `AlibabaCloud___GetTask` | Long-poll a `RunScript` task until approval, execution, or failure reaches a terminal state |
 
 ## Standard Workflow
 
@@ -54,7 +57,18 @@ retrieve the full definition including:
 Use `AlibabaCloud___GenerateCLICommand` to produce a correct CLI command from the
 API definition and user-provided parameters. This avoids manual CLI syntax errors.
 
-### 4. Execution
+### 4. Execution Choice
+
+Use `AlibabaCloud___CallCLI` for one known API call or generated command. Use
+`AlibabaCloud___RunScript` for multi-call work: pagination, List-to-Describe
+enrichment, cross-resource comparison, multi-region/multi-product collection,
+permission checks, or response-driven follow-up calls.
+
+Do not split one user task across multiple `RunScript` submissions just to
+inspect intermediate data. Put discovery, pagination, filtering, and follow-up
+Describe/Get calls in one self-contained script and return via `result`.
+
+### 5. Single-Call Execution
 
 Use `AlibabaCloud___CallCLI` to execute the generated command. Key constraints:
 
@@ -63,7 +77,67 @@ Use `AlibabaCloud___CallCLI` to execute the generated command. Key constraints:
 - No shell variables or command substitution
 - No local file path references (MCP server is remote)
 
-### 5. Cross-Account Execution
+### 6. Scripted Multi-Call Execution
+
+`AlibabaCloud___RunScript` starts an async sandboxed Python task and returns a
+`processID`. The script's OpenAPI access goes through injected `call_cli()` only:
+
+```python
+result = await call_cli(product='Ecs', action='DescribeInstances',
+                        params={'RegionId': 'cn-hangzhou'},
+                        version='2014-05-26', region='cn-hangzhou')
+```
+
+RunScript essentials:
+
+- `call_cli()` is structured OpenAPI, not CLI text. Never pass `aliyun ...`.
+- Use exact OpenAPI parameter names, usually PascalCase; arrays/objects stay as
+  Python lists/dicts unless the API parameter itself is JSON text.
+- `version`, `region`, and `endpoint` are optional; still pass API region fields
+  such as `RegionId` when the API defines them.
+- Assign final output to `result`. Do not pass credentials, profiles, shell
+  flags, or host file paths. Use `/tmp` only for small sandbox scratch files.
+- Discover IDs inside the script, paginate every list call, and never sample or
+  truncate complete inventory/compliance answers.
+- List APIs are not enough for attribute checks. Follow List with Describe/Get
+  and feature-specific APIs for every resource.
+- Verify response shape before saying "0 found"; list responses often wrap arrays
+  twice, e.g. `{"Instances":{"Instance":[...]}}`.
+- Use `asyncio.gather(..., return_exceptions=True)` for parallel calls. Treat
+  expected NotFound as "not configured" for optional features.
+- Do exact aggregation in Python; return raw fields for judgment calls such as
+  "misconfigured" or "risky".
+
+### 7. RunScript Task Polling
+
+After `AlibabaCloud___RunScript`, inspect `nextAction`:
+
+| `nextAction` | Meaning | Agent action |
+|--------------|---------|--------------|
+| `None` | Task succeeded | Use `result` and `callTrace` |
+| `CallGetTask` | Initial call is not terminal | Call `AlibabaCloud___GetTask` with the same `processID` |
+| `CallGetTaskAgain` | Poll timed out and task is still not terminal | Call `AlibabaCloud___GetTask` again with the same `processID` |
+| `Stop` | Validation failed, approval rejected/expired, task expired, or process missing | Stop; do not retry automatically |
+| `InspectError` | Execution failed | Inspect `error` and decide whether a corrected new script is needed |
+
+`AlibabaCloud___GetTask` parameters:
+
+- `processID`: required, from `RunScript`.
+- `waitTimeoutSeconds`: optional, capped at 30 seconds by the server. Use `0`
+  for an immediate status check.
+- `pollIntervalSeconds`: optional polling interval, between 1 and 10 seconds.
+
+Human approval handling:
+
+- `ApprovalPending` with `approvalReqId` means external approval is required.
+  Ask the user to complete approval or rejection out of band, then call
+  `AlibabaCloud___GetTask` again with the same `processID`.
+- Do not call `AlibabaCloud___RunScript` again while waiting for approval or
+  execution; that creates a new process instead of continuing the current one.
+- `ApprovalRejected` and `ApprovalExpired` are terminal. Stop and report the
+  approval result.
+
+### 8. Cross-Account Execution
 
 **IMPORTANT**: For any operation involving member accounts, cross-account queries,
 or Resource Directory account resolution, you MUST first load the
@@ -120,6 +194,10 @@ that are not captured in API definitions alone.
 - **AccessDenied / Forbidden**: Verify RAM permissions for the current identity.
 - **Throttling**: Retry with backoff; do not loop aggressively.
 - **RegionNotSupported**: Use `ListProductRegions` to find valid regions.
+- **RunScript ValidationFailed**: Fix unsafe or invalid Python authoring patterns
+  before submitting a new `RunScript`.
+- **RunScript Failed / InspectError**: Inspect `error` and `callTrace`; if the
+  script needs correction, submit one new corrected `RunScript`.
 
 ## Integration Guidance
 
@@ -127,8 +205,10 @@ When building stable workflows:
 
 1. Use `SearchApis` to identify the correct API during development.
 2. Use `GenerateCLICommand` to produce validated commands.
-3. Capture the stable command patterns into a dedicated Skill.
-4. Configure a safety policy to restrict the MCP connection to only the commands
+3. Use `RunScript` for workflows that require complete pagination,
+   List-to-Describe enrichment, or multi-call analysis.
+4. Capture the stable command or script patterns into a dedicated Skill.
+5. Configure a safety policy to restrict the MCP connection to only the commands
    the Skill needs (for production use).
 
 This progression — explore, validate, codify, restrict — ensures both flexibility
