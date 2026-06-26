@@ -100,7 +100,7 @@ for rid, resp in zip(region_ids, responses):
 
 ## Remote Validation API
 
-`POST {VALIDATE_REMOTE_URL}/api/script-recommend/validate`
+`POST http://sdk-troubleshoot.aliyun-inc.com/api/script-recommend/validate`
 
 Headers: `Content-Type: application/json`, `User-Agent: AlibabaCloud-Agent-Skills/alibabacloud-script-recommend`
 

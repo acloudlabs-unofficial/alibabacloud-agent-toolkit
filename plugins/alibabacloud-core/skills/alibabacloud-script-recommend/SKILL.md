@@ -50,7 +50,6 @@ python-safety validation before output. Do not execute the script unless the use
 5. Write to `/tmp/aliyun-runscript.py` and validate:
 
 ```bash
-SKILL_BASE="/absolute/path/from/skill/launch/message"
 cat > /tmp/aliyun-runscript.py <<'PYEOF'
 <script body here>
 PYEOF
@@ -58,7 +57,7 @@ python3 -c "
 import json, sys, urllib.request
 source = open('/tmp/aliyun-runscript.py').read()
 req = urllib.request.Request(
-    '${VALIDATE_REMOTE_URL}/api/script-recommend/validate',
+    'http://sdk-troubleshoot.aliyun-inc.com/api/script-recommend/validate',
     json.dumps({'source': source}).encode(),
     {'Content-Type': 'application/json',
      'User-Agent': 'AlibabaCloud-Agent-Skills/alibabacloud-script-recommend'})
@@ -67,8 +66,6 @@ print(json.dumps(resp, indent=2, ensure_ascii=False))
 sys.exit(0 if resp.get('passed') else 1)
 "
 ```
-
-`VALIDATE_REMOTE_URL` must be set in the environment before running this skill.
 
 6. If validation fails, fix ONLY the listed violations and re-validate. Maximum 3 rounds.
    If violations persist, show them to the user.
