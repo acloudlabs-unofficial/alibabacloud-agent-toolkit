@@ -44,8 +44,8 @@ python-safety validation before output. Do not execute the script unless the use
    step for unfamiliar APIs.
 
 4. Generate one Python script body following the Sandbox Contract and Script Patterns below.
-   When multiple tool calls are needed, batch them in parallel. Never repeat the same tool
-   call with the same arguments.
+   Only whitelisted modules may be imported. When multiple tool calls are needed, batch them in parallel. Never repeat
+   the same tool call with the same arguments.
 
 5. Write to `/tmp/aliyun-runscript.py` and validate:
 
@@ -80,7 +80,7 @@ for full definitions with examples.
 
 | Category | Rule |
 |----------|------|
-| **Imports** | Do not write `import` statements. Sandbox pre-imports: `asyncio`, `collections`, `csv`, `dataclasses`, `datetime`, `decimal`, `enum`, `fractions`, `functools`, `itertools`, `json`, `math`, `re`, `statistics`, `string`, `time`, `typing`, `uuid`. |
+| **Imports** | Only whitelisted modules may be imported: `asyncio`, `collections`, `csv`, `dataclasses`, `datetime`, `decimal`, `enum`, `fractions`, `functools`, `itertools`, `json`, `math`, `re`, `statistics`, `string`, `time`, `typing`, `uuid`. Any other import is forbidden. `call_cli` is pre-injected — do NOT import or define it. |
 | **API calls** | Use ONLY `call_cli(product, version, action, params)`. Pre-injected. No SDK clients, no HTTP requests, no subprocess. |
 | **Output** | Assign final data to `result` (dict or list). No `print()`. |
 | **Forbidden** | `os`, `subprocess`, `socket`, `requests`, `eval`, `exec`, `compile`, `getattr`, `setattr`, `globals`, `input`, `breakpoint`, `__import__`, dunder chains. |

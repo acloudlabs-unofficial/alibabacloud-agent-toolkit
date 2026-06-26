@@ -6,13 +6,14 @@ Read this only when validation fails repeatedly or the script needs more example
 
 ### Module Whitelist
 
-Only these modules may be imported (both at static analysis and runtime):
+Only these modules may be imported:
 `asyncio`, `collections`, `csv`, `dataclasses`, `datetime`, `decimal`, `enum`, `fractions`,
 `functools`, `itertools`, `json`, `math`, `re`, `statistics`, `string`, `time`, `typing`, `uuid`.
 
-At runtime, modules are wrapped with restricted exports; dunder attributes are inaccessible.
+Any other import is forbidden. At runtime, modules are wrapped with restricted exports;
+dunder attributes are inaccessible.
 
-✅ `import json`, `from collections import defaultdict`
+✅ `import asyncio`, `import json`, `from collections import defaultdict`
 ❌ `import os`, `import subprocess`, `import requests`, `from . import helper`
 
 ### No Reflection or Dynamic Code Execution
