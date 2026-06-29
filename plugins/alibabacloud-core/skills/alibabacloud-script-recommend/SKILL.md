@@ -89,7 +89,8 @@ for full definitions with examples.
 | **Numbers** | Do NOT use leading zeros in numeric literals (e.g., `01`, `010`). Write `1`, `10` instead. IP addresses and CIDR blocks must be strings: `"10.0.0.0/8"`, not bare numbers. |
 | **Strings** | Use f-strings or `.format()` only with constant format strings. Do NOT build `call_cli` arguments dynamically via `str.format(variable)` or `%` formatting with non-constant args. |
 | **Sleep** | `time.sleep()` argument MUST be ≤ 30. For longer waits, use a loop: `for _ in range(N): time.sleep(30)`. |
-| **Other** | No comments. Write/delete/update ops execute directly — the RunScript runtime intercepts write operations and presents them to the user for approval (HITL) before execution. The script itself should not add confirmation prompts. |
+| **Output format** | Output ONLY Python code. Do NOT output prose, explanations, or markdown before or after the code. If you must add context, use Python comments inside the script — but avoid comments unless absolutely necessary. |
+| **Other** | Write/delete/update ops execute directly — the RunScript runtime intercepts write operations and presents them to the user for approval (HITL) before execution. The script itself should not add confirmation prompts. |
 
 ## Script Patterns
 
