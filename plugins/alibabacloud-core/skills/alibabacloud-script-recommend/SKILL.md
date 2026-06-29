@@ -80,13 +80,16 @@ for full definitions with examples.
 
 | Category | Rule |
 |----------|------|
-| **Imports** | Only whitelisted modules may be imported: `asyncio`, `collections`, `csv`, `dataclasses`, `datetime`, `decimal`, `enum`, `fractions`, `functools`, `itertools`, `json`, `math`, `re`, `statistics`, `string`, `time`, `typing`, `uuid`. Any other import is forbidden. `call_cli` is pre-injected — do NOT import or define it. |
-| **API calls** | Use ONLY `call_cli(product, version, action, params)`. Pre-injected. No SDK clients, no HTTP requests, no subprocess. |
+| **Imports** | Only whitelisted modules may be imported: `asyncio`, `collections`, `csv`, `dataclasses`, `datetime`, `decimal`, `enum`, `fractions`, `functools`, `itertools`, `json`, `math`, `re`, `statistics`, `string`, `time`, `typing`, `uuid`. Do NOT import `random`, `os`, `subprocess`, `requests`, or any module not in this list. `call_cli` is pre-injected — do NOT import or define it. |
+| **API calls** | Use ONLY `call_cli(product, version, action, params)`. Pre-injected. No SDK clients, no HTTP requests, no subprocess. Parameter values must be plain strings/numbers — do NOT pass `aliyun ...` CLI command strings as parameter values. |
 | **Output** | Assign final data to `result` (dict or list). No `print()`. |
 | **Forbidden** | `os`, `subprocess`, `socket`, `requests`, `eval`, `exec`, `compile`, `getattr`, `setattr`, `globals`, `input`, `breakpoint`, `__import__`, dunder chains. |
 | **Blocked APIs** | Credential-returning APIs (`ram.ListAccessKeys`, `sts.AssumeRole`, `kms.GetSecretValue`). CLI meta products (`configure`, `plugin`, `ossutil`). |
 | **Structure** | `call_cli` must be reachable from module-level execution. Do NOT wrap all calls in an uninvoked `async def` — either write `await call_cli(...)` at top level, or define a function and call it: `async def main(): ... \n await main()`. |
-| **Other** | `time.sleep()` ≤ 30s. No comments. Write/delete/update ops execute directly — the RunScript runtime intercepts write operations and presents them to the user for approval (HITL) before execution. The script itself should not add confirmation prompts. |
+| **Numbers** | Do NOT use leading zeros in numeric literals (e.g., `01`, `010`). Write `1`, `10` instead. IP addresses and CIDR blocks must be strings: `"10.0.0.0/8"`, not bare numbers. |
+| **Strings** | Use f-strings or `.format()` only with constant format strings. Do NOT build `call_cli` arguments dynamically via `str.format(variable)` or `%` formatting with non-constant args. |
+| **Sleep** | `time.sleep()` argument MUST be ≤ 30. For longer waits, use a loop: `for _ in range(N): time.sleep(30)`. |
+| **Other** | No comments. Write/delete/update ops execute directly — the RunScript runtime intercepts write operations and presents them to the user for approval (HITL) before execution. The script itself should not add confirmation prompts. |
 
 ## Script Patterns
 
