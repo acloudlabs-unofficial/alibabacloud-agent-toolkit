@@ -50,6 +50,18 @@ Scripts must use `call_cli(product, version, action, params)`. Direct SDK instan
 ✅ `result = call_cli(product='Ecs', version='2014-05-26', action='DescribeInstances', params={'RegionId': 'cn-hangzhou'})`
 ❌ `from alibabacloud_ecs20140526.client import Client`
 
+### No `aliyun` Substring in Parameter Values (BLK-4001)
+
+Parameter values containing lowercase `aliyun` are blocked as suspected CLI command strings.
+
+| ❌ Blocked | ✅ Safe |
+|---|---|
+| `"1.28.3-aliyun.1"` (K8s version) | `"1.28.3"` (plain semver) |
+| `"aliyun ecs Describe..."` | `"aliyun_2_1903_x64_20G"` (`aliyun_` prefix OK) |
+| `"myhost.aliyun.com"` | `"Aliyun-Service"` (capitalized OK) |
+
+**Fix:** Use plain values or query APIs (e.g. `DescribeKubernetesVersion`) to fetch at runtime.
+
 ### Blocked High-Risk Read APIs
 
 APIs returning credentials or secrets are blocked even if read-only:

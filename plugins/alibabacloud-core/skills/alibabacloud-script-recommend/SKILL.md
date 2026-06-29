@@ -82,6 +82,7 @@ for full definitions with examples.
 |----------|------|
 | **Imports** | Only whitelisted modules may be imported: `asyncio`, `collections`, `csv`, `dataclasses`, `datetime`, `decimal`, `enum`, `fractions`, `functools`, `itertools`, `json`, `math`, `re`, `statistics`, `string`, `time`, `typing`, `uuid`. Do NOT import `random`, `os`, `subprocess`, `requests`, or any module not in this list. `call_cli` is pre-injected — do NOT import or define it. |
 | **API calls** | Use ONLY `call_cli(product, version, action, params)`. Pre-injected. No SDK clients, no HTTP requests, no subprocess. Parameter values must be plain strings/numbers — do NOT pass `aliyun ...` CLI command strings as parameter values. |
+| **Param values** | Parameter values must NOT contain lowercase `aliyun` (triggers BLK-4001). E.g. use `"1.28.3"` not `"1.28.3-aliyun.1"`. Query APIs to fetch exact values when unsure. |
 | **Output** | Assign final data to `result` (dict or list). No `print()`. |
 | **Forbidden** | `os`, `subprocess`, `socket`, `requests`, `eval`, `exec`, `compile`, `getattr`, `setattr`, `globals`, `input`, `breakpoint`, `__import__`, dunder chains. |
 | **Blocked APIs** | Credential-returning APIs (`ram.ListAccessKeys`, `sts.AssumeRole`, `kms.GetSecretValue`). CLI meta products (`configure`, `plugin`, `ossutil`). |
