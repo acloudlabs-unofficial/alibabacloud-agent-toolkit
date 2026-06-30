@@ -109,14 +109,6 @@ for rid, resp in zip(region_ids, responses):
 
 ## Local Validation
 
-Use `script/check_sandbox.py` for fast pre-checks before output. It catches:
-
-| Rule | What it catches |
-|------|----------------|
-| SEC-4001 | Forbidden imports (os, subprocess, requests, etc.) |
-| SEC-4002 | Forbidden calls (eval, exec, getattr, input, etc.) |
-| OBF-3018 | print() usage |
-| SLP-3001 | time.sleep() > 30s |
-| OUT-3001 | Missing `result = ...` assignment |
+Use `script/check_sandbox.py` for fast pre-checks before output. 
 
 Each violation includes a `→ fix` suggestion with actionable remediation.
